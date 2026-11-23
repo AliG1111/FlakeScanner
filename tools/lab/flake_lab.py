@@ -24,7 +24,7 @@ Usage:
   python3 -I tools/lab/flake_lab.py --only E10   # selected experiments (repeatable)
   python3 -I tools/lab/flake_lab.py --save-example out.png
 
-Results of record (see README.md), 8 images per condition, about 11 minutes:
+Results of record (see README.md), 8 images per condition, about 18 minutes:
   python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json \
       | tee tools/lab/results-<date>.txt
 

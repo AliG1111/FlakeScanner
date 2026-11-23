@@ -6,7 +6,7 @@ Development tool, not part of the app. It renders synthetic strand mats with a k
 
 ```
 pip install -r tools/lab/requirements.txt
-python3 -I tools/lab/flake_lab.py                 # all experiments, 4 images per condition (about 6 minutes on 4 cores)
+python3 -I tools/lab/flake_lab.py                 # all experiments, 4 images per condition (about 10 minutes on 4 cores)
 python3 -I tools/lab/flake_lab.py --quick         # 2 images per condition
 python3 -I tools/lab/flake_lab.py --images 8      # images per condition
 python3 -I tools/lab/flake_lab.py --only E9       # one experiment (repeat --only for more)
@@ -15,7 +15,7 @@ python3 -I tools/lab/flake_lab.py --save-example mat.png
 
 Everything is seeded and deterministic. Errors are method minus truth, ± one standard error from the image-to-image scatter.
 
-Results of record (8 images per condition, about 11 minutes):
+Results of record (8 images per condition, about 18 minutes; E4 alone about 8, E13 about 1.5):
 
 ```
 python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json | tee tools/lab/results-<date>.txt
