@@ -254,8 +254,8 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-PLAT-01 | iPhone only, deployment target iOS 17.0; scanner role on the iPhone 17 Pro Max (iOS 26); remote role on any iPhone with iOS 17 or later. | `project.yml` deployment target and device family. | P0 | Planned |
-| NFR-PLAT-02 | Native Swift with SwiftUI and Observation; Apple frameworks only (AVFoundation, Accelerate, CoreMotion, Network, CryptoKit, Charts, ImageIO); no third-party packages without a design decision. | No package dependencies in `project.yml`. | P0 | Planned |
+| NFR-PLAT-01 | iPhone only, deployment target iOS 17.0; scanner role on the iPhone 17 Pro Max (iOS 26); remote role on any iPhone with iOS 17 or later. | `project.yml` deployment target and device family. | P0 | Implemented |
+| NFR-PLAT-02 | Native Swift with SwiftUI and Observation; Apple frameworks only (AVFoundation, Accelerate, CoreMotion, Network, CryptoKit, Charts, ImageIO); no third-party packages without a design decision. | No package dependencies in `project.yml`. | P0 | Implemented |
 
 ### 6.2 Measurement accuracy (NFR-ACC)
 
@@ -311,7 +311,7 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-MNT-01 | Warning-free build; one folder per module; pure logic separated from device code; doc comments on non-obvious maths; units in names or comments. | CI: 0 warnings. | P0 | Planned |
+| NFR-MNT-01 | Warning-free build; one folder per module; pure logic separated from device code; doc comments on non-obvious maths; units in names or comments. | CI: 0 warnings. | P0 | Implemented |
 | NFR-MNT-02 | Requirements, design, plan with change log, `CLAUDE.md` and the user guide stay current with every change. | Definition of done in the plan. | All | Planned |
 | NFR-TST-01 | Pure logic (statistics, estimators, MD estimation, quality metrics, scheduler, formats, remote protocol and crypto) is unit-tested in a host-less XCTest bundle on the iOS Simulator; CI runs it for every pull request. | CI `unit-tests` green. | P0, P1, P2, P5, P6 | Planned |
 | NFR-TST-02 | Image tests of the estimators, of two kinds. **Parity**: a few small synthetic images rendered by `tools/lab` (8-bit PNG, ≤ 2 MB in all, synthetic only), with the lab's results as JSON in the app's angle convention, are test-bundle resources; the Swift results must match the lab's reference implementation of the same algorithm: *Edge orientation* from P1, within 0.05° on the mean and the spread; *Flake edges* once the lab has a Python reference of design §6.5 (P2.1), with tolerances set then. **Accuracy**: the Swift `SyntheticMat` renders mats at test time (seeded), and the results are checked against its truth with the NFR-ACC-02 conditions, tolerances and image counts. The test target is compiled with optimization so that the image tests fit the CI time. | Tests in CI. | P1, P2 | Planned |
@@ -321,21 +321,21 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-SEC-01 | Only the permissions used: camera, Local Network (`NSBonjourServices` = `_flakescan._tcp`), photo-library add for the share sheet. No microphone, location or photo-library read. | `Info.plist`. | P0 | Planned |
+| NFR-SEC-01 | Only the permissions used: camera, Local Network (`NSBonjourServices` = `_flakescan._tcp`), photo-library add for the share sheet. No microphone, location or photo-library read. | `Info.plist`. | P0 | Implemented |
 | NFR-SEC-02 | Local only: no internet services, analytics or accounts; the only network use is the remote link to the one paired phone. | Network code only in `Remote/`. | P6 | Planned |
-| NFR-SEC-03 | Repository hygiene: no secrets, Apple IDs, keys, certificates, profiles, personal data, plant pictures or run data in git. | `.gitignore`, review. | P0 | Planned |
+| NFR-SEC-03 | Repository hygiene: no secrets, Apple IDs, keys, certificates, profiles, personal data, plant pictures or run data in git. | `.gitignore`, review. | P0 | Implemented |
 | NFR-SEC-04 | Remote link security as Phone LiDAR NFR-SEC-06, including its documented pairing limitation (design §10.10). | Code review; unit tests. | P6 | Planned |
 | NFR-SEC-05 | Values from the other phone are untrusted: sizes, ROI bounds and every parameter range are checked; no crash on bad peer input. | Unit tests. | P6 | Planned |
-| NFR-SEC-06 | CI least privilege: read-only token, pinned actions and tools, secrets only in the TestFlight steps. | Workflow review. | P0 | Planned |
+| NFR-SEC-06 | CI least privilege: read-only token, pinned actions and tools, secrets only in the TestFlight steps. | Workflow review. | P0 | Implemented |
 
 ### 6.9 Build and distribution (NFR-BLD)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-BLD-01 | Builds run on GitHub Actions (`macos-26`, Xcode 26.x); XcodeGen generates the project; no `.xcodeproj` in git; build number = workflow run number. | Workflow `Build iOS app`. | P0 | Planned |
-| NFR-BLD-02 | Unsigned `.ipa` artifact for Sideloadly; optional TestFlight job (four secrets, as Phone LiDAR). | Artifacts on each run. | P0 | Planned |
-| NFR-BLD-03 | CI diagnostics: errors, warning count and failed tests on the run summary; logs kept as artifacts. | Run summary. | P0 | Planned |
-| NFR-BLD-04 | Bundle ID `ca.gervais.flakescanner`, distinct from Phone LiDAR, so both apps install side by side. | `project.yml`. | P0 | Planned |
+| NFR-BLD-01 | Builds run on GitHub Actions (`macos-26`, Xcode 26.x); XcodeGen generates the project; no `.xcodeproj` in git; build number = workflow run number. | Workflow `Build iOS app`. | P0 | Implemented |
+| NFR-BLD-02 | Unsigned `.ipa` artifact for Sideloadly; optional TestFlight job (four secrets, as Phone LiDAR). | Artifacts on each run. | P0 | Implemented |
+| NFR-BLD-03 | CI diagnostics: errors, warning count and failed tests on the run summary; logs kept as artifacts. | Run summary. | P0 | Implemented |
+| NFR-BLD-04 | Bundle ID `ca.gervais.flakescanner`, distinct from Phone LiDAR, so both apps install side by side. | `project.yml`. | P0 | Implemented |
 
 ## 7. Constraints and assumptions
 

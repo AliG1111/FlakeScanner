@@ -8,8 +8,8 @@ orientation* (structure tensor). MD is detected from the mat's movement. A secon
 direct phone-to-phone Wi-Fi (Phone LiDAR's remote link, plus a live preview and ROI drawing on the remote).
 
 State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–2 fixed, cycle 3 next); the GitHub
-repository is `AliG1111/FlakeScanner` (P0.2 done); the app skeleton and CI (P0.3, P0.4) are in PR #1 from `p0-skeleton`
-(CI green, change review clean), waiting for the owner's merge.
+repository is `AliG1111/FlakeScanner`; the app skeleton and CI (P0.3–P0.6) are merged on `main` (PR #1, build 7); next is
+the device probe build (P0.7).
 Next steps in docs/implementation-plan.md §6.
 
 ## Hard constraints
