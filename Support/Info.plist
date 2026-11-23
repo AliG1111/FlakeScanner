@@ -31,9 +31,9 @@
 		<string>_flakescan._tcp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Flake Scanner uses the camera to measure the angle of the flakes on the forming line. Pictures stay on this iPhone unless you show the live preview on your other iPhone or share files from the app.</string>
+	<string>Flake Scanner uses the camera to measure the angle of the flakes on the forming line. Pictures stay on this iPhone unless you show the live preview on your other iPhone, copy runs to it, or share files from the app.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Flake Scanner connects directly to your other iPhone running Flake Scanner, to control the scan and see a live preview.</string>
+	<string>Flake Scanner connects directly to your other iPhone running Flake Scanner, to control the scan, see a live preview and copy runs.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Flake Scanner saves an image to your Photos only when you choose Save Image in the share sheet.</string>
 	<key>UIApplicationSceneManifest</key>
