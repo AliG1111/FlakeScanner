@@ -1,6 +1,6 @@
 # Flake Scanner — flake angle statistics on the forming line, built without a Mac
 
-**Status (Nov 23, 2026): planning.** Requirements, design and the implementation plan are in [`docs/`](docs/). No app build exists yet; this guide grows with each phase.
+**Status (Nov 23, 2026):** the first app build compiles and installs. It is a shell with Home and About; nothing measures yet. Requirements, design and the implementation plan are in [`docs/`](docs/). This guide grows with each phase.
 
 ## What the app will do
 
@@ -11,11 +11,70 @@
 - **Runs** are saved as CSV and JSON (plus optional frame pictures) that open in Excel, and are visible in the Files app.
 - A **second iPhone** with the app controls the scanner over a direct phone-to-phone Wi-Fi link, like Phone LiDAR's remote: pair with a code, see the live picture, draw the region, start and stop, change settings, read the statistics, copy runs.
 
-## Building and installing (same as Phone LiDAR)
+## Building and installing
 
-1. **GitHub repository** — to be created by the owner (suggested name `FlakeScanner`; public gives free macOS build minutes). Not created yet.
-2. **Cloud build** — GitHub Actions compiles the app on a `macos-26` runner and produces `FlakeScanner-unsigned-ipa-<run>` (from phase P0).
-3. **Install** — with Sideloadly and a free Apple ID (re-sign every 7 days) or through TestFlight (paid Apple Developer Program), exactly as for Phone LiDAR.
+You need a Windows PC, an iPhone (iOS 17 or newer), a USB cable and a free GitHub account. You do not need a Mac. GitHub rents the Apple hardware that compiles the app.
+
+### 1. Repository
+
+The code is at https://github.com/AliG1111/FlakeScanner. The repository is public, so the macOS build minutes are free.
+
+### 2. Cloud build
+
+The workflow is called **Build iOS app**. It runs:
+
+- for every pull request into `main`,
+- for every push to `main` that changes more than Markdown files,
+- by hand: **Actions › Build iOS app › Run workflow**.
+
+Each run has two jobs: `unsigned-ipa` (builds the app) and `unit-tests`. Both must be green. The `.ipa` is made even if `unit-tests` fails, so install only from a run where both jobs are green.
+
+To get the app, open the finished run and scroll to **Artifacts**. Download `FlakeScanner-unsigned-ipa-<run>`. It is a zip with the `.ipa` inside. Unzip it.
+
+The build number of the app is the run number. Run 12 gives `FlakeScanner-unsigned-ipa-12` and build 12. The `.ipa` artifact is kept for 30 days.
+
+If a job fails, the run's summary page lists the compiler errors (**Build errors**) or the failed tests. Two more artifacts help: `build-log-<run>` (the full logs of the app job, kept 14 days) and `unit-test-results-<run>` (only when the `unit-tests` job fails: the test results and logs, kept 14 days).
+
+### 3. Install
+
+Pick one way.
+
+**A. Sideloadly with a free Apple ID.** The app must be re-signed every 7 days.
+
+1. On Windows, install **iTunes** (apple.com/itunes/download/win64) and the non-Store **iCloud** installer. The Microsoft Store versions do not work. Uninstall them first, and also the Store apps *Apple Devices*, *Apple Music* and *Apple TV*, which stop iTunes from seeing the phone. Then install **Sideloadly** from sideloadly.io.
+2. Plug in the iPhone, unlock it and tap **Trust This Computer**.
+3. Open Sideloadly, drag the `.ipa` onto it, enter your Apple ID and click **Start**. Enter the password and 2FA code when asked.
+4. On the iPhone, open **Settings › General › VPN & Device Management**, tap your Apple ID under **DEVELOPER APP** and tap **Trust**.
+5. Open **Settings › Privacy & Security › Developer Mode**, turn it on, restart the phone and confirm.
+6. After 7 days the app stops opening. Drag a newer `.ipa` (or the same one) into Sideloadly with the same Apple ID. Saved data stays.
+
+A free Apple ID allows only 3 sideloaded apps at a time and 10 new App IDs per 7 days. This matters if Phone LiDAR is installed too.
+
+**B. TestFlight with a paid Apple Developer Program account (99 USD a year).** Builds stay installable for 90 days and install over the air.
+
+One-time setup, in a web browser:
+
+1. Enroll at developer.apple.com/programs.
+2. At developer.apple.com, under **Certificates, IDs & Profiles › Identifiers**, add an App ID with the bundle ID `ca.gervais.flakescanner`. If it is taken, pick another and change `PRODUCT_BUNDLE_IDENTIFIER` for the `FlakeScanner` target in `project.yml` (the test target uses `ca.gervais.flakescanner.tests`).
+3. At appstoreconnect.apple.com, add a new iOS app with that bundle ID. The app name must be unique in App Store Connect: any unique name works. The SKU can be anything.
+4. In App Store Connect, under **Users and Access › Integrations › App Store Connect API**, create a team key with **App Manager** access. Note the Issuer ID and the Key ID. Download the `.p8` key file (you can download it only once).
+5. In PowerShell, make a certificate private key: `ssh-keygen -t rsa -b 2048 -m PEM -f cert_key`. Press Enter twice for an empty passphrase. Never commit these files.
+6. In the repository, open **Settings › Secrets and variables › Actions** and add four repository secrets:
+
+   | Name | Value |
+   |---|---|
+   | `APP_STORE_CONNECT_ISSUER_ID` | The Issuer ID from step 4 |
+   | `APP_STORE_CONNECT_KEY_IDENTIFIER` | The Key ID from step 4 |
+   | `APP_STORE_CONNECT_PRIVATE_KEY` | The full text of the `.p8` file, with the BEGIN and END lines |
+   | `CERTIFICATE_PRIVATE_KEY` | The full text of `cert_key` from step 5 |
+
+For each TestFlight build:
+
+1. Open **Actions › Build iOS app › Run workflow**, tick the `testflight` input (**Also sign and upload to TestFlight**) and run it. The `testflight` job starts only after `unsigned-ipa` and `unit-tests` have passed.
+2. Wait for App Store Connect to process the build (5 to 30 minutes).
+3. In App Store Connect, open the app, then **TestFlight › Internal Testing**, make a group and add yourself. Install the **TestFlight** app on the iPhone and install Flake Scanner from it.
+
+The job also keeps the signed `.ipa` as the artifact `FlakeScanner-signed-ipa-<run>`.
 
 ## Mounting and lighting (preliminary, from the design's error budget)
 
