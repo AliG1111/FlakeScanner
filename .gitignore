@@ -58,10 +58,28 @@ diag_*/
 *.dng
 *.DNG
 
-# Whitelisted places, last so that they win over every rule above (including run_*/ and the picture rules):
+# Whitelisted places, after the data rules so that they win over them (including run_*/ and the picture rules):
 # the app icon, synthetic test fixtures (unit tests, the lab, the app's self-test) and documentation figures.
 !FlakeScanner/Assets.xcassets/**/*.png
 !FlakeScanner/Diagnostics/Fixtures/**
 !Tests/FlakeScannerTests/Fixtures/**
 !tools/lab/fixtures/**
 !docs/figures/*.png
+
+# Never committed, not even inside the whitelisted places above: signing material, video, camera pictures and
+# archives. Fixtures are small synthetic PNG, JSON and CSV files only.
+cert_key
+cert_key.pub
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.zip
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.heic
+*.HEIC
+*.dng
+*.DNG
