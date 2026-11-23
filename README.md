@@ -19,12 +19,13 @@
 
 ## Mounting and lighting (preliminary, from the design's error budget)
 
-- Camera pointing straight down; keep the level within 3°.
-- Phone in portrait with the mat moving across the screen (right ↔ left), as with Phone LiDAR: the movement then runs along the camera's readout and the rolling shutter does not bias the mean angle.
-- Keep the region of interest near the middle of the picture.
-- Light the mat evenly from both sides or along the camera axis; light from one side shifts angles by 1–2°.
-- Flicker-free (DC-driven) LED light avoids banding with short shutters; the app detects and reduces banding, but steady light is the real fix.
-- Enough light for a shutter of 1/2,000 s or shorter: motion blur pulls angles toward the machine direction.
+- Camera pointing straight down: the level turns amber above 1° and red above 3° of tilt.
+- Keep the region of interest near the middle of the picture: with the phone tilted, a region off to one side adds a bias (up to 0.6° at 3° of tilt).
+- Phone in portrait with the mat moving across the screen (right ↔ left), as with Phone LiDAR. The movement then runs along the camera's readout, and the rolling shutter only stretches or squeezes the picture along the travel by about 1.5–3 %, so spreads and angles away from the machine direction read that much too small or large (the app shows the factor). Mounted the other way, the picture is sheared and the mean angle moves; the app warns.
+- Light the mat evenly from both sides or along the camera axis; light from one side shifts the mean angle by about 2°.
+- Flicker-free (DC-driven) LED light: dimmed LEDs make bands across the picture with short shutters, and mains flicker changes the brightness from shot to shot. The app detects both and warns; steady light is the real fix.
+- Enough light for a short shutter: the mat may move at most about one pixel during the exposure, so the shutter must be no longer than the millimetres per pixel divided by the line speed, for example 1/4,200 s at 1,500 mm/s with 0.36 mm per pixel (camera about 1 m above the mat). That takes about 2,000 lux on the mat, more than most halls have, so plan for an added LED light. Motion blur pulls angles toward the machine direction.
+- Before the first run on a mount, measure the flake width by dragging across a few typical flakes; the app needs it, and a width set too small makes the spread read too high.
 
 ## Developer documentation
 

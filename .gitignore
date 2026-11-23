@@ -26,7 +26,22 @@ __pycache__/
 *.pyc
 tools/lab/out/
 
-# Plant media and run data must never be committed
+# Plant media and run data must never be committed.
+# Pictures and tables are treated as data unless they live in a whitelisted place.
+*.jpg
+*.jpeg
+*.JPG
+*.JPEG
+*.png
+*.PNG
+*.tif
+*.tiff
+*.bmp
+*.csv
+!FlakeScanner/Assets.xcassets/**/*.png
+!Tests/FlakeScannerTests/Fixtures/**
+!tools/lab/fixtures/**
+!docs/**/*.png
 Reference/
 PlantMedia/
 Runs/

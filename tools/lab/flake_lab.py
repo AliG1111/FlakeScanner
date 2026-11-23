@@ -12,11 +12,21 @@ compares candidate estimators against the ground truth:
 Angles use image coordinates (x right, y down), 0 deg = +x = machine direction
 (MD) in the lab, axial range (-90, 90]. Every run is deterministic (seeded).
 
+Sign: lab angles are image angles beta, clockwise-positive on the screen. The
+app's flake angle is theta = wrap(beta_MD - beta) (design 6.1), counter-clockwise-
+positive; with the lab's MD at beta = 0 that is theta = -beta. Flip the sign of
+lab means (not of spreads or percentages) before comparing them with app output.
+
 Usage:
-  python3 -I tools/lab/flake_lab.py            # all experiments, prints tables
-  python3 -I tools/lab/flake_lab.py --quick    # fewer images per condition
-  python3 -I tools/lab/flake_lab.py --only E9  # selected experiments (repeatable)
+  python3 -I tools/lab/flake_lab.py              # all experiments, prints tables
+  python3 -I tools/lab/flake_lab.py --quick      # 2 images per condition
+  python3 -I tools/lab/flake_lab.py --images 8   # images per condition (default 4)
+  python3 -I tools/lab/flake_lab.py --only E10   # selected experiments (repeatable)
   python3 -I tools/lab/flake_lab.py --save-example out.png
+
+Results of record (see README.md), 8 images per condition, about 11 minutes:
+  python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json \
+      | tee tools/lab/results-<date>.txt
 
 Requires numpy and opencv-python-headless (see requirements.txt).
 """
@@ -89,12 +99,16 @@ def _poly_pts(corners, scale):
 
 def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0,
                grain=0.06, noise=0.012, psf=0.7, motion_blur=0.0, banding=0.0,
-               band_period=40.0, shadow=None):
+               band_period=40.0, band_axis="y", band_phase=None, shadow=None):
     """Render a mat of `n` strands; returns (8-bit image, truth dict).
 
     length/width are mean strand dimensions in output pixels (each strand +-30 %).
     motion_blur: box blur length in px along +x (MD) after optics.
-    banding: relative amplitude of a row-wise (sensor readout) sinusoid, e.g. 0.1.
+    banding: relative amplitude of a sinusoidal gain along the sensor readout (flicker seen through the
+        rolling shutter), e.g. 0.1; band_period in px. Sensor rows (lines of equal gain) run along x when
+        band_axis is "y" (gain varies down the image: rows parallel to the lab's MD, travel across the
+        readout) and along y when band_axis is "x" (gain varies along MD: the default mount, travel along
+        the readout). band_phase None puts a zero crossing (steepest gain slope) at the image centre.
     shadow: (dx, dy) px offset of a dark copy drawn under each strand (directional light).
     """
     ss = SUPERSAMPLE
@@ -163,8 +177,10 @@ def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0
         if k >= 2:
             img = cv2.filter2D(img, -1, np.full((1, k), 1.0 / k, np.float32))
     if banding > 0:
-        rows = np.arange(size, dtype=np.float32)[:, None]
-        img = img * (1.0 + banding * np.sin(2.0 * math.pi * rows / band_period))
+        pos = np.arange(size, dtype=np.float32)
+        phase = -2.0 * math.pi * (size / 2.0) / band_period if band_phase is None else band_phase
+        gain = 1.0 + banding * np.sin(2.0 * math.pi * pos / band_period + phase)
+        img = img * (gain[:, None] if band_axis == "y" else gain[None, :])
     img = img + rng.normal(0.0, noise, img.shape).astype(np.float32)
     img8 = np.clip(np.round(img * 255.0), 0, 255).astype(np.uint8)
 
@@ -190,11 +206,8 @@ def _gauss_kernels(sigma):
     return g.astype(np.float32), d.astype(np.float32)
 
 
-def structure_tensor(img8, sigma_d=1.0, sigma_i=6.0, row_normalize=False):
+def structure_tensor(img8, sigma_d=1.0, sigma_i=6.0):
     img = img8.astype(np.float32) / 255.0
-    if row_normalize:                               # divide out row-wise (banding) gain
-        rm = img.mean(axis=1, keepdims=True)
-        img = img / np.maximum(rm, 1e-3) * float(rm.mean())
     g, d = _gauss_kernels(sigma_d)
     # sepFilter2D correlates; derivative sign is consistent for x and y, so Jxy keeps its sign.
     gx = cv2.sepFilter2D(img, cv2.CV_32F, d, g, borderType=cv2.BORDER_REFLECT)
@@ -205,9 +218,8 @@ def structure_tensor(img8, sigma_d=1.0, sigma_i=6.0, row_normalize=False):
     return jxx, jyy, jxy
 
 
-def estimate_tensor(img8, sigma_d=1.0, sigma_i=6.0, coh_min=0.0, weight="energy*coh",
-                    border=None, row_normalize=False):
-    jxx, jyy, jxy = structure_tensor(img8, sigma_d, sigma_i, row_normalize)
+def estimate_tensor(img8, sigma_d=1.0, sigma_i=6.0, coh_min=0.0, weight="energy*coh", border=None):
+    jxx, jyy, jxy = structure_tensor(img8, sigma_d, sigma_i)
     step = max(1, int(round(sigma_i)))
     b = int(math.ceil(3 * sigma_i)) if border is None else border
     sl = (slice(b, -b, step), slice(b, -b, step))
@@ -227,11 +239,23 @@ def estimate_tensor(img8, sigma_d=1.0, sigma_i=6.0, coh_min=0.0, weight="energy*
     return edge_dir[keep], w[keep]
 
 
-def row_normalize8(img8):
-    """Divide each row by its mean (removes row-wise gain such as flicker banding); returns 8-bit."""
+def line_normalize8(img8, band_axis="y", window=0):
+    """Divide out a per-sensor-row gain (flicker banding); returns 8-bit.
+
+    Sensor rows run along x when band_axis is "y" and along y when it is "x" (see render_mat).
+    window 0 divides every row by its own mean; window > 0 divides by a moving average of the row means
+    over `window` rows, which removes only slow gain changes (mains flicker) and leaves the mat's own
+    row-to-row variation alone.
+    """
     img = img8.astype(np.float32)
-    rm = img.mean(axis=1, keepdims=True)
-    out = img / np.maximum(rm, 1.0) * float(rm.mean())
+    ax = 1 if band_axis == "y" else 0               # average along the row
+    rm = img.mean(axis=ax)
+    if window > 0:
+        k = np.ones(int(window), np.float32) / float(window)
+        pad = int(window) // 2
+        rm = np.convolve(np.pad(rm, pad, mode="reflect"), k, mode="valid")[: rm.size]
+    g = np.maximum(rm, 1.0) / float(rm.mean())
+    out = img / (g[:, None] if band_axis == "y" else g[None, :])
     return np.clip(np.round(out), 0, 255).astype(np.uint8)
 
 
@@ -325,45 +349,109 @@ def estimate_segments_merged(img8, min_len=36.0, piece_min=10.0, max_gap=48.0):
     return a[keep], ln[keep]
 
 
+def estimate_width_paired(img8, piece_min=10.0, max_angle=4.0, min_overlap=0.5, wmin=3.0, wmax=150.0):
+    """Typical flake width (px) from the two long sides of single flakes.
+
+    LSD orients every segment so that the brighter side lies at cross(u, p - m) < 0 (image y down),
+    so the two long sides of a bright flake are anti-parallel with each other's bright side facing
+    inwards. For each edge, the nearest anti-parallel edge (within max_angle) on its bright side whose
+    projections overlap by >= min_overlap of the shorter piece, and which in turn has the first edge on
+    its own bright side, is its partner; their distance is one width sample. Returns the length-weighted
+    median of the samples and their count (median of a +-30 % uniform width spread = its mean).
+    """
+    l = _segments_raw(img8, piece_min)
+    n = len(l)
+    if n < 2:
+        return float("nan"), 0
+    p1, p2 = l[:, :2], l[:, 2:]
+    d = p2 - p1
+    ln = np.hypot(d[:, 0], d[:, 1])
+    u = d / ln[:, None]
+    g = np.stack([u[:, 1], -u[:, 0]], axis=1)       # unit normal towards the bright side
+    m = 0.5 * (p1 + p2)
+    anti = (u @ u.T) <= -math.cos(math.radians(max_angle))
+    rel = m[None, :, :] - m[:, None, :]             # m_j - m_i
+    dist = (rel * g[:, None, :]).sum(-1)            # j's offset along i's bright normal
+    mutual = (dist > wmin) & (dist.T > wmin) & (dist < wmax)
+    # overlap of j's projection with i's extent along u_i
+    t1 = ((p1[None, :, :] - p1[:, None, :]) * u[:, None, :]).sum(-1)
+    t2 = ((p2[None, :, :] - p1[:, None, :]) * u[:, None, :]).sum(-1)
+    lo = np.maximum(0.0, np.minimum(t1, t2))
+    hi = np.minimum(ln[:, None], np.maximum(t1, t2))
+    ov = np.maximum(0.0, hi - lo)
+    ok = anti & mutual & (ov >= min_overlap * np.minimum(ln[:, None], ln[None, :]))
+    dd = np.where(ok, dist, np.inf)
+    j = np.argmin(dd, axis=1)
+    has = np.isfinite(dd[np.arange(n), j])
+    if not has.any():
+        return float("nan"), 0
+    samples = dd[np.arange(n), j][has]
+    weights = ov[np.arange(n), j][has]
+    order = np.argsort(samples)
+    cw = np.cumsum(weights[order])
+    med = float(samples[order][np.searchsorted(cw, 0.5 * cw[-1])])
+    return med, int(has.sum())
+
+
 # ----------------------------------------------------------------------------------------------
 # Experiments
 # ----------------------------------------------------------------------------------------------
 
-def run_condition(seed, images, **mat):
-    """Pool estimates over `images` mats; returns per-method stats and truth."""
+METHODS = ("A_tensor", "A_tensor_coh", "B_seg_count", "B_seg_len", "B_merged")
+
+
+def run_condition(seed, images, width_set=None, normalize=None, **mat):
+    """Pool estimates over `images` mats (all drawn from one seeded generator).
+
+    Returns per-method pooled statistics, the pooled truth (strands >= 25 % visible), and for each method
+    the standard error of its error (mean, sd, in20) from the image-to-image scatter.
+    width_set: expected flake width the estimators assume (default: the true mean width).
+    normalize: None, "line" (divide every sensor row by its mean) or ("smooth", window) (divide by a moving
+        average of the row means); sensor rows follow mat["band_axis"].
+    """
     rng = np.random.default_rng(seed)
-    pools = {"truth": ([], None), "A_tensor": ([], []), "A_tensor_coh": ([], []),
-             "B_seg_count": ([], None), "B_seg_len": ([], []), "B_merged": ([], None)}
-    row_norm = mat.pop("row_normalize", False)
-    timing = {"A": 0.0, "B": 0.0}
+    wset = float(width_set if width_set is not None else mat.get("width", 24.0))
+    axis = mat.get("band_axis", "y")
+    pools = {k: ([], []) for k in ("truth",) + METHODS}
+    errs = {k: [] for k in METHODS}
+    timing = {"A": 0.0, "B_merged": 0.0}
     for _ in range(images):
         img, truth = render_mat(rng, **mat)
-        if row_norm:
-            img = row_normalize8(img)
-        vis = truth["visible_frac"] >= 0.25
-        pools["truth"][0].append(truth["theta"][vis])
+        if normalize == "line":
+            img = line_normalize8(img, axis)
+        elif isinstance(normalize, tuple) and normalize[0] == "smooth":
+            img = line_normalize8(img, axis, window=normalize[1])
+        tth = truth["theta"][truth["visible_frac"] >= 0.25]
+        est = {}
         t0 = time.perf_counter()
-        th, w = estimate_tensor(img, sigma_i=0.25 * mat.get("width", 24.0))
-        pools["A_tensor"][0].append(th)
-        pools["A_tensor"][1].append(w)
-        th2, w2 = estimate_tensor(img, sigma_i=0.25 * mat.get("width", 24.0), coh_min=0.5, weight="coh")
-        pools["A_tensor_coh"][0].append(th2)
-        pools["A_tensor_coh"][1].append(w2)
+        est["A_tensor"] = estimate_tensor(img, sigma_i=0.25 * wset)
         timing["A"] += time.perf_counter() - t0
+        est["A_tensor_coh"] = estimate_tensor(img, sigma_i=0.25 * wset, coh_min=0.5, weight="coh")
+        ths, ln = estimate_segments(img, min_len=1.5 * wset)
+        est["B_seg_count"] = (ths, None)
+        est["B_seg_len"] = (ths, ln)
         t0 = time.perf_counter()
-        ths, ln = estimate_segments(img, min_len=1.5 * mat.get("width", 24.0))
-        timing["B"] += time.perf_counter() - t0
-        pools["B_seg_count"][0].append(ths)
-        pools["B_seg_len"][0].append(ths)
-        pools["B_seg_len"][1].append(ln)
-        thm, _ = estimate_segments_merged(img, min_len=1.5 * mat.get("width", 24.0),
-                                          max_gap=2.0 * mat.get("width", 24.0))
-        pools["B_merged"][0].append(thm)
-    out = {}
-    for k, (ths, ws) in pools.items():
-        th = np.concatenate(ths)
-        w = None if ws is None else np.concatenate(ws)
+        thm, _ = estimate_segments_merged(img, min_len=1.5 * wset, max_gap=2.0 * wset)
+        timing["B_merged"] += time.perf_counter() - t0
+        est["B_merged"] = (thm, None)
+        pools["truth"][0].append(tth)
+        ts = axial_stats(tth)
+        for k in METHODS:
+            th, w = est[k]
+            pools[k][0].append(th)
+            pools[k][1].append(np.ones_like(th) if w is None else w)
+            ms = axial_stats(th, w)
+            if ms.get("n", 0) and ts.get("n", 0):
+                errs[k].append((axial_diff(ms["mean"], ts["mean"]), ms["sd"] - ts["sd"], ms["in20"] - ts["in20"]))
+    out = {"truth": axial_stats(np.concatenate(pools["truth"][0]))}
+    for k in METHODS:
+        th = np.concatenate(pools[k][0])
+        w = np.concatenate(pools[k][1])
         out[k] = axial_stats(th, w)
+        e = np.asarray(errs[k])
+        if len(e) >= 2:
+            se = e.std(axis=0, ddof=1) / math.sqrt(len(e))
+            out[k]["se"] = {"mean": float(se[0]), "sd": float(se[1]), "in20": float(se[2])}
     out["_timing_ms"] = {k: 1000.0 * v / images for k, v in timing.items()}
     return out
 
@@ -373,60 +461,56 @@ def fmt_row(name, s, truth=None):
         return f"  {name:<14} n=0"
     t = ""
     if truth is not None:
-        t = (f"  | err mean {axial_diff(s['mean'], truth['mean']):+6.2f}  sd {s['sd'] - truth['sd']:+6.2f}"
-             f"  in20 {s['in20'] - truth['in20']:+6.1f}  f {s['f'] - truth['f']:+.3f}")
+        se = s.get("se", {"mean": float("nan"), "sd": float("nan"), "in20": float("nan")})
+        t = (f"  | err mean {axial_diff(s['mean'], truth['mean']):+6.2f}±{se['mean']:.2f}"
+             f"  sd {s['sd'] - truth['sd']:+6.2f}±{se['sd']:.2f}"
+             f"  in20 {s['in20'] - truth['in20']:+6.1f}±{se['in20']:.1f}  f {s['f'] - truth['f']:+.3f}")
     return (f"  {name:<14} n={s['n']:>7}  mean {s['mean']:+7.2f}  sd {s['sd']:6.2f}  R {s['R']:.3f}"
             f"  f {s['f']:+.3f}  in20 {s['in20']:5.1f}%  mad {s['mad']:5.2f}{t}")
 
 
-METHODS = ("A_tensor", "A_tensor_coh", "B_seg_count", "B_seg_len", "B_merged")
-
-
-def report(title, res):
+def report(title, res, methods=METHODS):
     print(title)
     tr = res["truth"]
     print(fmt_row("truth", tr))
-    for m in METHODS:
+    for m in methods:
         print(fmt_row(m, res[m], tr))
-    print(f"  time per 768x768 image (Python/OpenCV, this PC): A {res['_timing_ms']['A']:.0f} ms,"
-          f" B {res['_timing_ms']['B']:.0f} ms")
+    print(f"  time per 768x768 image (Python/OpenCV, this PC): A (one tensor) {res['_timing_ms']['A']:.0f} ms,"
+          f" B_merged (detect + merge) {res['_timing_ms']['B_merged']:.0f} ms")
+
+
+def mean_errors(r):
+    tr = r["truth"]
+    return "  ".join(f"{m} {axial_diff(r[m]['mean'], tr['mean']):+5.2f}±{r[m].get('se', {}).get('mean', float('nan')):.2f}"
+                     for m in METHODS)
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--quick", action="store_true", help="2 images per condition instead of 4")
+    ap.add_argument("--quick", action="store_true", help="2 images per condition")
+    ap.add_argument("--images", type=int, default=4, help="images per condition (default 4)")
     ap.add_argument("--save-example", metavar="PNG", help="write one synthetic mat and exit")
     ap.add_argument("--json", metavar="FILE", help="also write all results as JSON")
     ap.add_argument("--only", metavar="E", action="append",
-                    help="run only these experiments (E1..E9); repeatable")
+                    help="run only these experiments (E1..E12); repeatable")
     args = ap.parse_args(argv)
-    images = 2 if args.quick else 4
+    images = 2 if args.quick else max(2, args.images)
 
     if args.save_example:
         img, _ = render_mat(np.random.default_rng(1), mu=10.0, kappa=4.0)
         cv2.imwrite(args.save_example, img)
         return 0
 
-    results = {}
-    want = (lambda e: True) if not args.only else (lambda e: e in args.only)
-    if want("E1"):
-        experiment_e1(images, results)
-    if want("E2"):
-        experiment_e2(images, results)
-    if want("E3"):
-        experiment_e3(images, results)
-    if want("E4"):
-        experiment_e4(images, results)
-    if want("E5"):
-        experiment_e5(images, results)
-    if want("E6"):
-        experiment_e6(images, results)
-    if want("E7"):
-        experiment_e7(images, results)
-    if want("E8"):
-        experiment_e8(images, results)
-    if want("E9"):
-        experiment_e9(images, results)
+    print(f"Flake lab: {images} images per condition (E8: 3x). Errors are method minus truth, ± one standard"
+          " error from the image-to-image scatter. Angles: lab image angles (clockwise-positive).")
+    results = {"_images": images}
+    experiments = (("E1", experiment_e1), ("E2", experiment_e2), ("E3", experiment_e3), ("E4", experiment_e4),
+                   ("E5", experiment_e5), ("E6", experiment_e6), ("E7", experiment_e7), ("E8", experiment_e8),
+                   ("E9", experiment_e9), ("E10", experiment_e10), ("E11", experiment_e11),
+                   ("E12", experiment_e12))
+    for name, fn in experiments:
+        if not args.only or name in args.only:
+            fn(images, results)
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=1, default=float)
@@ -434,13 +518,11 @@ def main(argv=None):
 
 
 def experiment_e1(images, results):
-    print("E1  Mean-angle bias vs true mean direction (kappa 4, aspect 5:1)")
+    print("\nE1  Mean-angle bias vs true mean direction (kappa 4, aspect 5:1)")
     for mu in (0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0):
         r = run_condition(100 + int(mu), images, mu=mu, kappa=4.0)
         results[f"E1_mu{int(mu)}"] = r
-        tr = r["truth"]
-        errs = "  ".join(f"{m} {axial_diff(r[m]['mean'], tr['mean']):+5.2f}" for m in METHODS)
-        print(f"  mu {mu:4.0f}: truth mean {tr['mean']:+6.2f}  errors: {errs}")
+        print(f"  mu {mu:4.0f}: truth mean {r['truth']['mean']:+6.2f}  errors: {mean_errors(r)}")
 
 
 def experiment_e2(images, results):
@@ -452,7 +534,7 @@ def experiment_e2(images, results):
 
 
 def experiment_e3(images, results):
-    print("\nE3  Motion blur along MD (mu 10, kappa 4)")
+    print("\nE3  Motion blur along MD (mu 10, kappa 4, same strands in every row)")
     for mb in (0.0, 2.0, 4.0, 8.0):
         r = run_condition(300, images, mu=10.0, kappa=4.0, motion_blur=mb)
         results[f"E3_blur{int(mb)}"] = r
@@ -460,11 +542,24 @@ def experiment_e3(images, results):
 
 
 def experiment_e4(images, results):
-    print("\nE4  Row banding (flicker + rolling shutter), 10 % amplitude, 40-row period (mu 10, kappa 4)")
-    for rn in (False, True):
-        r = run_condition(400, images, mu=10.0, kappa=4.0, banding=0.10, row_normalize=rn)
-        results[f"E4_band_rownorm{int(rn)}"] = r
-        report(f" banding, row normalization {'on' if rn else 'off'}", r)
+    print("\nE4  Flicker banding through the rolling shutter (mu 10, kappa 4; same strands and noise in every row)")
+    print("    rows across MD = default mount (travel along the readout); rows along MD = travel across it.")
+    print("    40 px ~ kHz PWM dimming; 1100-2700 px ~ 100/120 Hz mains flicker at 8-16 ms readout.")
+    conds = (
+        ("control, no banding", {}, None),
+        ("PWM 40 px 10 %, rows along MD", dict(banding=0.10, band_period=40.0, band_axis="y"), None),
+        ("  same + line normalization", dict(banding=0.10, band_period=40.0, band_axis="y"), "line"),
+        ("PWM 40 px 10 %, rows across MD", dict(banding=0.10, band_period=40.0, band_axis="x"), None),
+        ("  same + line normalization", dict(banding=0.10, band_period=40.0, band_axis="x"), "line"),
+        ("mains 1100 px 30 %, rows across MD", dict(banding=0.30, band_period=1100.0, band_axis="x"), None),
+        ("  same + smooth normalization 129", dict(banding=0.30, band_period=1100.0, band_axis="x"), ("smooth", 129)),
+        ("mains 2700 px 30 %, rows across MD", dict(banding=0.30, band_period=2700.0, band_axis="x"), None),
+        ("mains 1100 px 30 %, rows along MD", dict(banding=0.30, band_period=1100.0, band_axis="y"), None),
+    )
+    for i, (name, kw, norm) in enumerate(conds):
+        r = run_condition(400, images, normalize=norm, mu=10.0, kappa=4.0, **kw)
+        results[f"E4_{i}"] = dict(r, _label=name)
+        report(f" {name}", r)
 
 
 def experiment_e5(images, results):
@@ -491,6 +586,15 @@ def experiment_e7(images, results):
         report(f" {n} strands per 768 x 768 px", r)
 
 
+def experiment_e8(images, results):
+    print("\nE8  Rotational bias, the same strands rotated in place (one seed: same positions, sizes and"
+          " deviations from mu) (kappa 16, 3x images)")
+    for mu in (0.0, 10.0, 22.5, 30.0, 45.0, 67.5, 80.0, 90.0):
+        r = run_condition(800, 3 * images, mu=mu, kappa=16.0)
+        results[f"E8_mu{mu}"] = r
+        print(f"  mu {mu:5.1f}: truth mean {r['truth']['mean']:+6.2f} (n {r['truth']['n']})  errors: {mean_errors(r)}")
+
+
 def experiment_e9(images, results):
     print("\nE9  Collinear merging of edge pieces vs mat density (mu 0)")
     for kappa in (2.0, 4.0):
@@ -500,14 +604,74 @@ def experiment_e9(images, results):
             report(f" kappa {kappa}, {n} strands", r)
 
 
-def experiment_e8(images, results):
-    print("\nE8  Rotational bias, paired with the same strands (kappa 16, 3x images)")
-    for mu in (0.0, 10.0, 22.5, 30.0, 45.0, 67.5, 80.0, 90.0):
-        r = run_condition(800 + int(mu * 10), 3 * images, mu=mu, kappa=16.0)
-        results[f"E8_mu{mu}"] = r
-        tr = r["truth"]
-        errs = "  ".join(f"{m} {axial_diff(r[m]['mean'], tr['mean']):+5.2f}" for m in METHODS)
-        print(f"  mu {mu:5.1f}: truth mean {tr['mean']:+6.2f} (n {tr['n']})  errors: {errs}")
+def experiment_e10(images, results):
+    print("\nE10 Expected flake width set wrong (true mean width 24 px, mu 0, kappa 4; same strands in every row)")
+    for ws in (8.0, 12.0, 16.0, 20.0, 24.0, 30.0, 36.0, 48.0):
+        r = run_condition(1000, images, width_set=ws, mu=0.0, kappa=4.0)
+        results[f"E10_w{int(ws)}"] = r
+        report(f" width set to {ws:.0f} px", r, methods=("A_tensor", "B_merged"))
+
+
+def experiment_e11(images, results):
+    print("\nE11 Flake width estimated from paired long edges (estimate_width_paired), aspect 5:1, ~same cover")
+    for width in (12.0, 24.0, 36.0):
+        n = int(round(650 * (24.0 * 120.0) / (width * 5.0 * width)))
+        for kappa in (2.0, 4.0):
+            rng = np.random.default_rng(1100 + int(width) + int(kappa))
+            est, true_w, pairs = [], [], 0
+            for _ in range(images):
+                img, truth = render_mat(rng, n=n, mu=0.0, kappa=kappa, length=5.0 * width, width=width)
+                w, k = estimate_width_paired(img)
+                est.append(w)
+                pairs += k
+                true_w.append(truth["width"][truth["visible_frac"] >= 0.25])
+            tw = float(np.mean(np.concatenate(true_w)))
+            e = np.asarray(est)
+            rel = 100.0 * (e / tw - 1.0)
+            results[f"E11_w{int(width)}_k{kappa}"] = {"true_mean_width": tw, "estimates": e.tolist(),
+                                                      "pairs": pairs}
+            print(f"  width {width:4.0f} px, kappa {kappa}, {n} strands: true mean (visible) {tw:5.1f} px,"
+                  f" estimates {', '.join(f'{x:5.1f}' for x in e)} px ({rel.mean():+5.1f} % mean,"
+                  f" worst {rel[np.argmax(np.abs(rel))]:+5.1f} %), {pairs // images} pairs per image")
+
+
+def _clip_lengths(cx, cy, ux, uy, length, w, h):
+    """Length of each segment (centre, unit direction, length) inside [0, w] x [0, h] (Liang-Barsky)."""
+    t0 = np.full(cx.shape, -length / 2.0)
+    t1 = np.full(cx.shape, length / 2.0)
+    for p, q in ((-ux, cx), (ux, w - cx), (-uy, cy), (uy, h - cy)):
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = q / p
+        t0 = np.where(p < 0, np.maximum(t0, r), t0)
+        t1 = np.where(p > 0, np.minimum(t1, r), t1)
+        t1 = np.where((p == 0) & (q < 0), t0 - 1.0, t1)
+    return np.maximum(0.0, t1 - t0)
+
+
+def experiment_e12(images, results):
+    print("\nE12 ROI border rule (geometry only, no images): which flake edges count when the ROI cuts them."
+          "\n    truth = edges whose centre lies in the ROI; clip = clip to the ROI, then the minimum length"
+          " (100 px);\n    inside = only edges entirely inside. Edge lengths 100-400 px, MD along the ROI's"
+          " short side.")
+    rng = np.random.default_rng(1200)
+    n = 1_000_000
+    for (w, h, kappa, mu) in ((2304, 1296, 4.0, 0.0), (2000, 666, 4.0, 0.0), (2000, 666, 2.0, 30.0),
+                              (1296, 1296, 2.0, 30.0)):
+        cx = rng.uniform(-400, w + 400, n)
+        cy = rng.uniform(-400, h + 400, n)
+        th = wrap_axial(sample_axial_vonmises(rng, mu, kappa, n))
+        length = rng.uniform(100.0, 400.0, n)
+        ux, uy = np.sin(np.radians(th)), np.cos(np.radians(th))   # theta measured from the y axis (MD)
+        inside_c = (cx >= 0) & (cx <= w) & (cy >= 0) & (cy <= h)
+        cl = _clip_lengths(cx, cy, ux, uy, length, w, h)
+        rows = {}
+        for name, sel in (("truth", inside_c), ("clip", cl >= 100.0), ("inside", inside_c & (cl >= length - 1e-9))):
+            rows[name] = axial_stats(th[sel])
+        t = rows["truth"]
+        results[f"E12_{w}x{h}_k{kappa}_mu{mu}"] = rows
+        print(f"  ROI {w} x {h} px, kappa {kappa}, mu {mu}: " + "  ".join(
+            f"{k} mean {axial_diff(v['mean'], t['mean']):+5.2f} sd {v['sd'] - t['sd']:+5.2f}"
+            f" in20 {v['in20'] - t['in20']:+5.1f}" for k, v in rows.items() if k != "truth"))
 
 
 if __name__ == "__main__":

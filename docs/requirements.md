@@ -39,7 +39,7 @@ Out of scope: cloud services and internet use, outputs to plant systems (PLC, hi
 
 | Item | Description |
 |---|---|
-| Primary user | The owner: a controls and automation engineer in OSB manufacturing. Technical, comfortable with CSV/Excel and engineering units; not an iOS developer; works from a Windows PC. (Same user as Phone LiDAR.) |
+| Primary user | The owner: an engineer at an OSB mill. Technical, comfortable with CSV/Excel and engineering units; not an iOS developer; works from a Windows PC. (Same user as Phone LiDAR.) |
 | Scanner phone | iPhone 17 Pro Max (iOS 26), mounted above the forming line, camera pointing straight down at the mat, rigid vibration-isolated mount, USB-C power. Screen faces up, so the phone is hard to see and reach once mounted. |
 | Remote phone | A second iPhone with the app (model to be confirmed, Q-06), held by the operator at a safe place near the line. It is the normal user interface while the scanner is mounted. |
 | Material (assumed, Q-01, Q-03) | Loose strand mat on the forming belt after a forming head (face or core layer). Strands about 75–150 mm long and 10–25 mm wide, overlapping, partly hidden by each other. |
@@ -51,14 +51,15 @@ Out of scope: cloud services and internet use, outputs to plant systems (PLC, hi
 
 | ID | Use case | Main flow | Requirements |
 |---|---|---|---|
-| UC-01 | Set up the scanner | Mount the phone › Home › Scan › level it (bubble) › check focus, exposure and the quality light › draw the ROI › wait until the machine direction shows *Detected* | FR-CAP, FR-ROI, FR-DIR, FR-QUAL, FR-CAL-01 |
+| UC-01 | Set up the scanner | Mount the phone › Home › Scan › level it (bubble) › check focus, exposure, the required shutter and the quality light › draw the ROI › measure the flake width › wait until the machine direction shows *Detected* | FR-CAP, FR-ROI, FR-DIR, FR-QUAL, FR-CAL-01, FR-CAL-07 |
 | UC-02 | Set up from the second phone | Both phones › Home › Connect to the other phone › pair with the code › the remote shows the live picture › draw or adjust the ROI and settings from the remote | FR-RMT |
 | UC-03 | Measure | Start run (scanner or remote) › live statistics and quality › Stop › run saved › summary | FR-RATE, FR-MEAS, FR-STAT, FR-RUN |
 | UC-04 | Review a run | Runs › run › histogram, rose, time series, frames table, settings used, quality summary › share files | FR-LIB, FR-EXP |
 | UC-05 | Snapshot | Snapshot (scanner or remote) › one full-resolution analysis with its overlay picture saved | FR-RATE-05, FR-RMT-12 |
 | UC-06 | Copy runs to the remote | Remote › runs on the scanner › Copy › open on the remote | FR-RMT-10 |
-| UC-07 | Check accuracy | Print the test target › place it under the camera (still or moving) › test-target mode compares measured and printed angles | FR-CAL-06, NFR-ACC-04 |
+| UC-07 | Check accuracy | Print the test target › place it under the camera (still, or taped to the moving belt) › Scan › Test target › the app finds the printed markers and reference bar › compares measured and printed angles (mean, spread, percent within ±20°, per-angle bias) | FR-CAL-06, NFR-ACC-04 |
 | UC-08 | Collect pictures | Turn on frame saving for a run › frames saved with the results (for tuning, audits and future ML training) | FR-RUN-03 |
+| UC-09 | Probe the phone and the plant | Settings › Diagnostics › camera report, sample frames with their camera data, flicker and readout test, self-test › share the zip | FR-APP-06 |
 
 ## 4. Conventions
 
@@ -67,7 +68,8 @@ Out of scope: cloud services and internet use, outputs to plant systems (PLC, hi
 - **Flake angle θ**: the angle between a flake's long axis and the **machine direction (MD)**, the direction the mat travels, measured in the plane of the mat as seen from above. The camera looks down and its picture is not mirrored, so "as seen from above" equals "as seen in the picture".
 - **Axial**: a flake has no head or tail, so θ and θ ± 180° are the same flake. Angles are reported in (−90°, +90°]. 0° = parallel to MD; ±90° = across the line (cross direction, CD).
 - **Sign**: positive = counter-clockwise from MD as seen from above. The scan screen shows the MD arrow and a "+" arc so the sign can be read on the picture. Reversing the travel direction does not change any axial angle.
-- **Target direction**: the orientation the layer should have (0° for face layers, 90° for core layers, or a custom value). "Deviation" = the smallest axial difference between θ and the target.
+- **Target direction**: the orientation the layer should have (0° for face layers, 90° for core layers, or a custom value). "Deviation" dev = wrap(θ − target) to (−90°, 90°], the smallest signed axial difference between θ and the target.
+- **Display range**: angles, means, histograms, rose plots and time series are shown in (target − 90°, target + 90°], so the target sits in the middle and a core layer (target 90°) never splits at the ±90° wrap. Files keep θ in (−90°, 90°] and carry the signed deviation next to it (`dev_deg`, `mean_dev_deg`), which can be averaged in a spreadsheet when the spread is small.
 
 ### 4.2 Statistics
 
@@ -82,7 +84,7 @@ For n samples with angles θᵢ (relative to MD) and weights wᵢ (1 for count-b
 | Orientation factor f | C relative to the target direction: Σwᵢ cos 2(θᵢ − target) / Σwᵢ | +1 = all along the target, 0 = random, −1 = all across it |
 | Mean absolute deviation | Σwᵢ ∣dev(θᵢ)∣ / Σwᵢ | degrees from the target |
 | Percent within ±a | 100 · Σwᵢ [∣dev(θᵢ)∣ ≤ a] / Σwᵢ, default a = 10°, 20°, 30° | % |
-| Histogram | Counts (or weights) in bins over (−90°, 90°], internally 1°, shown as 5° by default | — |
+| Histogram | Counts (or weights) in bins of the deviation from the target over (−90°, 90°] (the same as θ bins when the target is 0°), internally 1°, shown as 5° by default | — |
 
 Statistics are shown as "—" until n reaches the minimum sample count (FR-STAT-07).
 
@@ -105,14 +107,15 @@ Statistics are shown as "—" until n reaches the minimum sample count (FR-STAT-
 | FR-APP-03 | The screen stays awake while the scan screen is open and while the scanner role is on. | P4, P6 | Planned |
 | FR-APP-04 | Camera permission: a clear explanation before the system prompt, and a message with a link to Settings when it was denied. | P3 | Planned |
 | FR-APP-05 | Settings persist between launches and can be reset to defaults; every run records the settings it used (FR-RUN-02). | P4 | Planned |
+| FR-APP-06 | **Diagnostics** (Settings › Diagnostics), because there is no Xcode console: (a) camera report: every back camera's formats with size, frame-rate range, binning, video HDR, distortion-correction and intrinsics-delivery support, exposure and ISO ranges; (b) sample capture: a short burst at a chosen format with locked short exposure, saved as ROI-sized PNGs plus per-frame camera data (timestamps, exposure, ISO, lens position, intrinsics, gravity); (c) flicker and readout test (design §6.16); (d) self-test: the built-in synthetic fixture images run through the analysis and are compared with their stored results; (e) everything shared as one zip. Diagnostics files stay on the phone until shared and are never committed. | P0, P2 | Planned |
 
 ### 5.2 Capture (FR-CAP)
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
 | FR-CAP-01 | Capture uses one fixed physical back camera: the 1× main (wide) camera by default, the telephoto as an option. Virtual multi-camera devices are never used, so the lens cannot switch during a run. | P3 | Planned |
-| FR-CAP-02 | The capture format is chosen for accuracy: the highest resolution that runs at ≥ 30 fps, preferring formats with the highest maximum frame rate at that resolution (shortest sensor readout, design §6.12). The user can pick 1080p, 4K or 4:3 12 MP where the camera offers them. | P3 | Planned |
-| FR-CAP-03 | Video stabilization is off; geometric distortion correction is on where supported; per-frame camera intrinsics are delivered where supported. | P3 | Planned |
+| FR-CAP-02 | The capture format is chosen for accuracy by ranking, not by hard filters: the highest resolution that runs at ≥ 30 fps, preferring formats that are not binned and have the highest maximum frame rate at that resolution (shortest sensor readout, design §6.12). A binned format is used only when no other meets the rate, and is flagged. The user can pick 1080p, 4K or 4:3 12 MP where the camera offers them. | P0, P2, P3 | Planned |
+| FR-CAP-03 | Image processing is fixed for the whole run: video stabilization off; video HDR off (no automatic HDR); low-light boost off; a fixed frame duration (no automatic frame-rate changes); geometric distortion correction on where supported; per-frame camera intrinsics delivered where supported (the device probe confirms which image they describe, P0.8). Every applied state is recorded (NFR-REL-04). | P0, P3 | Planned |
 | FR-CAP-04 | Exposure modes: **Auto, shutter-limited** (default; the longest allowed shutter follows the motion-blur budget, FR-QUAL-03) and **Manual** (shutter and ISO). Exposure is locked at Start for the whole run (default on). | P3 | Planned |
 | FR-CAP-05 | Focus: autofocus on the ROI, then locked (default); tap to refocus; manual lens position. Focus stays locked during a run. | P3 | Planned |
 | FR-CAP-06 | White balance is locked at Start. | P3 | Planned |
@@ -137,29 +140,29 @@ Statistics are shown as "—" until n reaches the minimum sample count (FR-STAT-
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
 | FR-RATE-01 | The user sets the analysis rate in shots per second: 0.1–10 /s in steps of 0.1 below 1 /s and 1 above, capped at the camera frame rate; default 2 /s. | P3, P4 | Planned |
-| FR-RATE-02 | Accuracy before speed: frames are picked by timestamp at the set rate; analysis never lowers resolution or quality to keep up. When the analysis of a frame takes longer than the interval, the due frames are skipped (never queued) and the achieved rate is shown next to the requested rate. | P3 | Planned |
-| FR-RATE-03 | Coverage: from the measured speed and the ROI length along MD the screen shows the share of passing material that is analyzed and the overlap between consecutive shots, and suggests the rate without overlap. | P4 | Planned |
-| FR-RATE-04 | Analysis pauses while the line is stopped (no movement detected), so standing material is not counted again (on by default). | P3 | Planned |
-| FR-RATE-05 | **Snapshot**: one analysis on demand that also saves the frame and its overlay picture. | P4, P5 | Planned |
+| FR-RATE-02 | Accuracy before speed: frames are picked by timestamp at the set rate; analysis never lowers resolution or quality to keep up. When the analysis of a frame takes longer than the interval, the shots that fall due meanwhile are skipped (never queued, no catch-up burst); skipped shots are counted and the achieved rate is shown next to the requested rate (design §6.9). | P2, P3 | Planned |
+| FR-RATE-03 | Coverage: from the measured speed and the ROI length along MD the screen shows the share of passing material that is analyzed and the overlap between consecutive shots, and suggests the rate without overlap. | P2, P4 | Planned |
+| FR-RATE-04 | Analysis pauses while the line is stopped (no movement detected), so standing material is not counted again (on by default). | P2, P3 | Planned |
+| FR-RATE-05 | **Snapshot**: one analysis on demand that also saves the frame and its overlay picture: inside the run's `Frames/` (flagged as a snapshot) during a run, otherwise in `Snapshots/` (design §7.2). | P4, P5 | Planned |
 
 ### 5.5 Machine direction and speed (FR-DIR)
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
 | FR-DIR-01 | **Auto** (default): MD is measured from the frame-to-frame movement of the material (two-dimensional image registration) and averaged; the screen shows the MD angle relative to the picture axis, its uncertainty and *Detected* when it is stable. | P2, P3 | Planned |
-| FR-DIR-02 | **Manual**: the user draws a line along the travel (for example along a side wall) or types the angle. | P4 | Planned |
+| FR-DIR-02 | **Manual**: the user draws a line along the travel (for example along a side wall) or types the angle. Angles of drawn lines and boxes are computed in pixel coordinates, never in normalized coordinates (which stretch differently along x and y). | P4 | Planned |
 | FR-DIR-03 | A run cannot start until MD is detected (Auto) or set (Manual); the remote gets the same reason. | P4, P6 | Planned |
-| FR-DIR-04 | MD is fixed for a run and recorded with it. During the run the movement direction is still measured; a change of more than 0.5° (camera bumped, configurable) raises a warning and is recorded. | P3, P5 | Planned |
-| FR-DIR-05 | Speed in px/s per frame and live; in mm/s (and m/min, ft/min) when the scale is known (FR-CAL-02). | P3 | Planned |
+| FR-DIR-04 | MD is fixed for a run and recorded with it. During the run the movement direction is still measured. A confirmed change of more than 0.5° (camera bumped; 0.5° for ≥ 3 s, configurable) excludes the following frames with the reason *MD changed* until the direction returns; if it has not returned after 10 s the run stops and saves with that reason, because every later angle would be offset. The event is recorded. | P2, P3, P5, P8 | Planned |
+| FR-DIR-05 | Speed in px/s per frame and live; in mm/s (and m/min, ft/min) when the scale is known (FR-CAL-02). | P2, P3 | Planned |
 
 ### 5.6 Measurement methods (FR-MEAS)
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
-| FR-MEAS-01 | **Flake edges** (default): straight flake edges are detected with sub-pixel orientation; each edge at least the minimum length long (default 1.5 × the expected flake width) is one sample with angle, length, centre and contrast. Collinear pieces of one edge interrupted by crossing flakes are merged before counting (design §6.5). Statistics are count-based (one sample per edge) or, by choice, length-weighted. | P2 | Planned |
+| FR-MEAS-01 | **Flake edges** (default): straight flake edges are detected with sub-pixel orientation; each edge at least the minimum length long (default 1.5 × the flake width of FR-CAL-07) is one sample with angle, length, centre and contrast. Collinear pieces of one edge interrupted by crossing flakes are merged before counting; edges cut by the ROI border are clipped to the ROI before the minimum length applies (design §6.5). Statistics are count-based (one sample per edge) or, by choice, length-weighted. | P2 | Planned |
 | FR-MEAS-02 | **Edge orientation**: a structure-tensor orientation field is sampled on a grid over the ROI; samples are weighted by coherence × edge strength. Reported as the orientation distribution of flake edges and grain (its spread is not a per-flake spread, design §6.4). | P1 | Planned |
-| FR-MEAS-03 | **Both**: both methods on the same frame for comparison; the headline numbers use the method chosen as primary. | P2, P4 | Planned |
-| FR-MEAS-04 | Method parameters with defaults and an *Advanced* section: expected flake width (px, or mm with a scale), minimum edge length, integration scale, coherence and contrast thresholds, row normalization (Off / Auto / On). All are recorded in each run. | P1, P2, P4 | Planned |
+| FR-MEAS-03 | **Both**: both methods on the same frame for comparison; the headline numbers use the method chosen as primary. Files keep the methods apart: `Frames.csv` has one row per frame and method with a `method` column, `Samples.csv` holds the *Flake edges* samples and `FrameHistograms.csv` the *Edge orientation* histograms, and the summaries have one block per method (design §7). | P2, P4 | Planned |
+| FR-MEAS-04 | Method parameters with defaults and an *Advanced* section: minimum edge length (default from the flake width, FR-CAL-07), integration scale, coherence and contrast thresholds, banding correction for *Edge orientation* (Off / Auto / On). All are recorded in each run. | P1, P2, P4 | Planned |
 | FR-MEAS-05 | Results are deterministic: the same frame, parameters and build give identical results, so saved frames can be re-analyzed reproducibly. | P1, P2 | Planned |
 | FR-MEAS-06 | **Flakes (ML)**: per-flake instance segmentation with length and width, trained on the owner's pictures. | P10 | Planned (later) |
 
@@ -167,11 +170,11 @@ Statistics are shown as "—" until n reaches the minimum sample count (FR-STAT-
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
-| FR-STAT-01 | Per analyzed frame: n, mean angle, alignment R, spread, orientation factor, mean absolute deviation, percent within ±10/20/30° (limits configurable), quality flags. | P1, P3 | Planned |
+| FR-STAT-01 | Per analyzed frame: n, mean angle, alignment R, spread, orientation factor, mean absolute deviation, percent within ±10/20/30° (limits configurable), quality flags. | P1, P2, P3 | Planned |
 | FR-STAT-02 | Per run, over the included frames: the same values plus the histogram (5° bins, 1/2/10° selectable), a rose plot, the 95 % confidence interval of the mean angle and of the percent within ±20° (computed from the variation between frames, design §6.6), and frames included and excluded with reasons. | P1, P4, P5 | Planned |
 | FR-STAT-03 | Rolling statistics over the last 10 s or 60 s (selectable) and time-series charts of mean angle, spread and percent within ±20° during and after a run. | P4, P5 | Planned |
-| FR-STAT-04 | Target direction (0°, 90° or custom): deviation, orientation factor and percent-within values are relative to it. | P1, P4 | Planned |
-| FR-STAT-05 | All statistics use the axial formulas of §4.2; histograms cover (−90°, 90°]. | P1 | Planned |
+| FR-STAT-04 | Target direction (0°, 90° or custom): deviation, orientation factor and percent-within values are relative to it; angles are displayed in (target − 90°, target + 90°] and files add the signed deviation (§4.1). | P1, P4 | Planned |
+| FR-STAT-05 | All statistics use the axial formulas of §4.2; histograms are over the deviation from the target, (−90°, 90°]. | P1 | Planned |
 | FR-STAT-06 | Live values update at ≤ 4 Hz in fixed-width cells with fixed decimals (angles 0.1°, percentages 0.1 %). | P4 | Planned |
 | FR-STAT-07 | Minimum sample count before statistics are shown: default 30 samples per frame for frame values and 200 per run for run values. | P1, P4 | Planned |
 
@@ -181,30 +184,31 @@ Statistics are shown as "—" until n reaches the minimum sample count (FR-STAT-
 |---|---|---|---|
 | FR-QUAL-01 | Exposure: share of ROI pixels clipped dark or bright; warning above 1 %, frame excluded above 5 % (configurable). | P1, P3 | Planned |
 | FR-QUAL-02 | Focus: sharpness of the ROI compared with the value at focus lock; warning when it drops by more than 30 %. | P1, P3 | Planned |
-| FR-QUAL-03 | Motion blur budget: blur (px) = speed (px/s) × exposure time (s). Warning above 1.0 px, frame excluded above 2.0 px (configurable). In Auto exposure the longest shutter = budget / speed. | P1, P3 | Planned |
-| FR-QUAL-04 | Flicker banding (lighting flicker with the rolling shutter): detected from the row profile of the ROI; warning when found; row normalization applied automatically in *Auto* (FR-MEAS-04). | P1, P3 | Planned |
+| FR-QUAL-03 | Motion blur budget: blur (px) = speed (px/s) × exposure time (s). Warning above 1.0 px, frame excluded above 2.0 px (configurable). In Auto exposure the longest shutter = budget / speed. Setup shows the shutter the budget needs (budget × mm/px ÷ speed, for example 1/4,200 s at 1,500 mm/s and 0.36 mm/px) and whether the light allows it at ISO ≤ 1,600. | P1, P2, P3 | Planned |
+| FR-QUAL-04 | Lighting flicker: short-period banding (PWM-dimmed lights, seen through the rolling shutter) is detected from the row profile of the ROI (banding score), mains-frequency flicker from the frame-to-frame brightness (flicker index, design §6.16); either gives a warning. With *Edge orientation* the banding correction removes short-period bands automatically in *Auto* (FR-MEAS-04). *Flake edges* is not corrected: in the default mount banding barely moves it, and across the readout the correction does not remove its mean shift (lab E4, design §6.2). | P1, P3 | Planned |
 | FR-QUAL-05 | Texture: too few samples or too little edge strength excludes the frame ("no texture"). | P1 | Planned |
-| FR-QUAL-06 | Level: warning when the camera axis is more than 3° from vertical (gravity, FR-CAL-01). | P3 | Planned |
+| FR-QUAL-06 | Level: the absolute tilt of the camera axis from vertical (gravity, FR-CAL-01): amber above 1°, red above 3°. Zeroing the level never moves these limits. The absolute tilt is recorded per frame and in `Run.json`. | P3 | Planned |
 | FR-QUAL-07 | A quality light (green / amber / red) with the reasons on the scanner and the remote; each frame's quality values and flags are saved, and exclusions are counted by reason in the run summary. | P4, P5 | Planned |
 
 ### 5.9 Calibration and setup (FR-CAL)
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
-| FR-CAL-01 | Bubble level from gravity, with zero and reset (as Phone LiDAR). | P3 | Planned |
+| FR-CAL-01 | Bubble level from gravity showing the absolute tilt; an optional zero (and reset), as Phone LiDAR, only sets the reference used to detect bumps during a run. | P3 | Planned |
 | FR-CAL-02 | Scale (optional): the camera distance to the mat is entered (mm) and combined with the camera intrinsics to give mm per px; without it, sizes and speeds stay in px. | P3 | Planned |
 | FR-CAL-03 | LiDAR distance and surface tilt: measured scale and a perspective correction of the analysis. | P9 | Planned (later) |
 | FR-CAL-04 | Rolling-shutter readout calibration and correction. | P9 | Planned (later) |
 | FR-CAL-05 | Lens-distortion correction from the camera's calibration data. | P9 | Planned (later) |
-| FR-CAL-06 | Test-target mode: a printable target (PDF in the repository) with flakes at known angles; the app compares the measured and the printed distribution (mean, spread, per-angle bias). | P8 | Planned |
+| FR-CAL-06 | **Test-target mode** (design §6.15): a printable target (PDF and layout file generated by `tools/lab`) with four corner markers, a printed reference bar with an arrow (the reference direction and sign) and flakes at known angles. The app finds the markers and the bar, uses the bar as MD (no movement needed, no stopped-line pause), analyses still frames, and reports measured against printed statistics (mean, spread, percent within ±20°) and the per-angle bias of flakes matched through the markers. On the moving belt the same report also checks the automatic MD against the bar. Results are saved as a run with a target report. | P2, P5, P8 | Planned |
+| FR-CAL-07 | **Flake width** (required setup, design §6.5): the typical flake width in px is set before the first run on a mount, by dragging across three to five typical flakes on a frozen frame (the app uses the second-widest, because a width set too narrow lets flake ends pass as edges and inflates the spread, while one set up to twice too wide costs little, lab E10) or from the nominal width in mm with the scale. Start is refused until it is set; it is recorded in every run. An automatic estimate from paired flake edges warns when the setting differs from it by more than a factor of 2 (lab E11). Below 12 px per flake width the screen warns (move closer or use the telephoto). | P2, P4 | Planned |
 
 ### 5.10 Runs and recording (FR-RUN)
 
 | ID | Requirement | Phase | Status |
 |---|---|---|---|
 | FR-RUN-01 | Start and Stop on the scanner and from the remote; states: *not ready* (with the reason), *ready*, *running*, *saving*, *failed*. | P4 | Planned |
-| FR-RUN-02 | Each run is a folder `run_<yyyy-MM-dd_HHmmss>` with `Run.json` (settings, camera state, calibration, MD, app version; written at Start and completed at Stop), `Frames.csv` (one row per analyzed frame), `Samples.csv` (one row per sample, Flake edges) or `FrameHistograms.csv` (Edge orientation), `Histogram.csv` and `Summary.json` / `Summary.csv`. Formats in design §7. | P5 | Planned |
-| FR-RUN-03 | Optional frame saving: every Nth analyzed frame's ROI as a lossless 8-bit PNG, optionally the full frame (HEIC) and the overlay picture; the screen shows the expected storage per minute. | P5 | Planned |
+| FR-RUN-02 | Each run is a folder `run_<yyyy-MM-dd_HHmmss>` with `Run.json` (settings, camera state, calibration, MD, flake width, app version; written at Start, when the run appears in the library marked *Recording*, and completed at Stop), `Frames.csv` (one row per analyzed frame and method), `Samples.csv` (one row per sample, Flake edges) and/or `FrameHistograms.csv` (Edge orientation), `Histogram.csv` and `Summary.json` / `Summary.csv`. Formats in design §7. | P5 | Planned |
+| FR-RUN-03 | Optional frame saving: every Nth analyzed frame's ROI with its filter margin (the margin is recorded in `Run.json`, so a re-analysis reproduces the results) as a lossless 8-bit PNG, optionally the full frame (HEIC) and the overlay picture; the screen shows the expected storage per minute. | P5 | Planned |
 | FR-RUN-04 | Free space: Start is refused below 1 GB; a run stops and saves below 300 MB. | P5 | Planned |
 | FR-RUN-05 | Crash safety: results are streamed to disk during the run; a marker file flags an unfinished run; interrupted runs are repaired and listed in the library. | P5 | Planned |
 | FR-RUN-06 | Optional automatic stop after a set time or number of analyzed frames. | P5 | Planned |
@@ -236,10 +240,10 @@ Phone LiDAR's remote link (its FR-RMT-01…12) carried over and extended with th
 | FR-RMT-06 | The remote shows the scanner's state: phase, run time, analyzed frames, achieved/requested rate, live statistics and histogram, MD state and angle, speed, quality light and reasons, level, heat, battery and free storage. | P6 | Planned |
 | FR-RMT-07 | Live preview on the remote: a downscaled picture (about 640 px, 2–5 fps) with the ROI and the analysis overlay, sent only while the remote shows it, never slowing the analysis (dropped when the link or the scanner is busy). | P6 | Planned |
 | FR-RMT-08 | ROI drawing on the remote preview with the same gestures as on the scanner (FR-ROI-01); the scanner checks and applies it when no run is active and returns the applied ROI. | P6 | Planned |
-| FR-RMT-09 | Remote controls: Start/Stop, analysis rate, method, exposure (mode, shutter, ISO, lock), focus (refocus, lock), torch, MD (Auto/Manual, detect again), target direction, limits, frame saving. The scanner validates every value and answers accepted or refused with the reason. | P6 | Planned |
+| FR-RMT-09 | Remote controls: Start/Stop, analysis rate, method, exposure (mode, shutter, ISO, lock), focus (refocus, lock), torch, MD (Auto/Manual, detect again), target direction, limits, frame saving. The scanner validates every value and answers accepted or refused with the reason. Settings travel as patches of the changed fields only; when the two phones' settings schema versions differ, the remote shows the scanner read-only and asks to update the phone with the older build (design §6.14). | P6 | Planned |
 | FR-RMT-10 | Copy runs from the scanner to the remote (list, resumable copy, import into the remote's library), as Phone LiDAR copies scans. | P6 | Planned |
 | FR-RMT-11 | With the scanner role on, the scan screen stays open and ready after a run, so the remote can start the next one. | P6 | Planned |
-| FR-RMT-12 | Snapshot from the remote (FR-RATE-05); the overlay picture can be viewed on the remote. | P6 | Planned |
+| FR-RMT-12 | Snapshot from the remote (FR-RATE-05); its overlay picture comes to the remote as a downscaled preview-type message, which is allowed during a run like the live preview; the full-size snapshot files are copied with the run after Stop. | P6 | Planned |
 
 ## 6. Non-functional requirements
 
@@ -257,50 +261,50 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
 | NFR-ACC-01 | Rotation invariance of the estimators. | Synthetic straight edges and gratings at every angle 0–179° in 1° steps: bias ≤ 0.1° (Flake edges, edges ≥ 50 px long) and ≤ 0.2° (Edge orientation). Unit tests in CI. | P1, P2 | Planned |
-| NFR-ACC-02 | Accuracy on synthetic mats with a known distribution (fixed seeds; design §6.13). | Mean angle error ≤ 0.5° for any true mean direction (both methods). Flake edges, face-layer alignment (spread ≤ 16°): spread error ≤ 1.0° and percent-within-±20° error ≤ 3 points; the lab prototype is at the limit (−0.3…−1.0°, +0.4…+3.1 points). Weaker alignment (spread 16–40°): the prototype under-reads the spread by 1.2–2.0° (percent within ±20° 3–5 points high), more in very dense mats, because crossing flakes hide each other; P2 must cut this to ≤ 1.0° / ≤ 3 points or record the residual as a documented bias. Unit tests in CI. | P1, P2 | Planned |
+| NFR-ACC-02 | Accuracy on synthetic mats with a known distribution (seeded; design §6.13). Conditions: the lab's density (650 strands of 120 × 24 px ± 30 % per 768 × 768 px), aspect 5 : 1 to 10 : 1, flake width set to the true width, no blur, banding or shadow. Each tolerance is checked with enough images that the standard error (SE) of the mean error is at most a third of the tolerance. | **Face-layer alignment** (spread about 15°, κ = 4, and tighter): mean angle error ≤ 0.5° for any true mean direction (both methods); *Flake edges* spread error ≤ 1.5° and percent-within-±20° error ≤ 4 points, goal 1.0° / 3 points. Lab prototype: spread −0.6…−1.1°, +1.9…+3.4 points; mean errors within ±0.6° at SE 0.2–0.4°, to be settled with more images in P1.6. **Weaker alignment** (spread about 24°, κ = 2): *Flake edges* mean ≤ 1.0°, spread ≤ 2.0°, percent within ±20° ≤ 5 points (prototype −0.8…+0.2°, −1.0…−1.4°, +2.2…+3.3 points); *Edge orientation* mean ≤ 1.5° (prototype −1.4…+1.6° at SE 0.6°). The *Edge orientation* spread is an edge spread, not a flake spread (FR-MEAS-02), and has no tolerance. Outside these conditions (spread above 30°, twice the lab density, blur, banding, one-sided light) the lab's biases are documented in design §6.12–6.13, not tested as limits. Unit tests in CI. | P1, P2 | Planned |
 | NFR-ACC-03 | Machine-direction accuracy. | Synthetic moving sequences: MD error ≤ 0.1°. Device: ≤ 0.3° against a reference line (P8). | P2, P8 | Planned |
-| NFR-ACC-04 | End-to-end accuracy on the device with the printed test target, still and moving, under the plant lighting. | Proposed: mean angle within ±0.5°, spread within ±1.0°, percent within ±20° within ±3 points (P8). | P8 | Planned |
-| NFR-ACC-05 | Motion blur control. | Default budget 1.0 px; frames above the exclusion limit (2.0 px) never enter the statistics (FR-QUAL-03). | P3 | Planned |
-| NFR-ACC-06 | Mount tilt. | ≤ 3° from vertical keeps the perspective bias of the mean angle ≤ 0.1° when the ROI is centred in the picture (local errors toward the picture edge are larger, design §6.12); the level warns above 3° and the scan screen hints when the ROI is off-centre. | P3, P4 | Planned |
-| NFR-ACC-07 | Rolling shutter. | With the travel along the sensor readout direction (default mount, design §6.12) the mean angle is unbiased and the spread changes by less than 2 % at 1,500 mm/s, assuming a readout time ≤ 8 ms (measured in P8 V3); documented until corrected (FR-CAL-04). | P3, P9 | Planned |
-| NFR-ACC-08 | Statistical precision is visible. | Run screen and `Summary.json` show the 95 % confidence intervals; a run of 100 non-overlapping shots typically reaches ±0.5° on the mean angle (informational). | P5 | Planned |
+| NFR-ACC-04 | End-to-end accuracy on the device with the printed test target (FR-CAL-06), still and moving, under the plant lighting. The printed reference bar is the MD reference, so no hand-drawn line enters the result. | Proposed: mean angle within ±0.5°, spread within ±1.0°, percent within ±20° within ±3 points (P8). | P8 | Planned |
+| NFR-ACC-05 | Motion blur control. | Default budget 1.0 px; frames above the exclusion limit (2.0 px) never enter the statistics (FR-QUAL-03). | P2, P3 | Planned |
+| NFR-ACC-06 | Mount tilt. | For an ROI centred in the picture, ≤ 3° of tilt keeps the perspective bias of the mean angle ≤ 0.1°. An ROI whose centre is off-centre by x̄ (in focal lengths; 0.2 is about a third of the way to the side) adds up to φ·x̄ for flakes perpendicular to the tilt axis: 0.6° at φ = 3°, 0.2° at 1° (design §6.12). The level is amber above 1° and red above 3° (FR-QUAL-06); the scan screen shows the tilt bias bound of the current ROI. | P3, P4 | Planned |
+| NFR-ACC-07 | Rolling shutter. | With the travel along the sensor readout (default mount, design §6.12) each angle moves by about ∓(s/2)·sin 2θ, s = v·T_r / H (speed, readout time, picture extent along the readout in mm): the spread scales by (1 ∓ s) and a layer whose mean is μ from MD reads ∓(s/2)·sin 2μ off, so deviations from MD are about s too small or large. s ≈ 1.5 % at 1,500 mm/s, T_r = 8 ms and 1 m camera height (H ≈ 0.8 m), 3 % at 0.5 m. The app computes s from the speed, the readout time measured by the device probe (P0.8) and the scale, shows it and records it per run, and warns when MD is more than 10° from the readout direction (shear instead of stretch); FR-CAL-04 corrects it (P9). | P0, P3, P9 | Planned |
+| NFR-ACC-08 | Statistical precision is visible. | Run screen and `Summary.json` show the 95 % confidence intervals; a run of 100 non-overlapping shots typically reaches ±0.5° on the mean angle (informational). | P1, P5 | Planned |
 
 ### 6.3 Performance (NFR-PERF)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-PERF-01 | Capture keeps its frame rate while analysis runs; analysis has its own queue; no unbounded queues; camera buffers are released quickly (the ROI is copied out). | No drop in capture rate with analysis on (P8 V1). | P3 | Planned |
+| NFR-PERF-01 | Capture keeps its frame rate while analysis runs; analysis has its own queue; no unbounded queues; camera buffers are released quickly (the ROI is copied out). | No drop in capture rate with analysis on (P8 V1). | P3, P8 | Planned |
 | NFR-PERF-02 | Analysis time per shot on the iPhone 17 Pro Max for a 2,000 × 2,000 px ROI. | Proposed: ≤ 150 ms (Edge orientation), ≤ 300 ms (Flake edges), so ≥ 3 shots/s at that ROI (P8 V2). | P1, P2, P8 | Planned |
 | NFR-PERF-03 | Responsive UI. | Live values ≤ 4 Hz, overlay ≤ 5 fps, no main-thread work longer than 16 ms per update. | P4 | Planned |
-| NFR-PERF-04 | Remote link. | Status 4 Hz; preview 2–5 fps at about 640 px; command answer ≤ 1 s at 5 m line of sight (P8). | P6 | Planned |
-| NFR-PERF-05 | Sustained runs on USB-C power. | 60-minute run without thermal shutdown. At *serious* thermal state preview and overlay slow down and the analysis rate may be capped with a visible notice; at *critical* the run stops and saves (P8). | P3, P5 | Planned |
+| NFR-PERF-04 | Remote link. | Status 4 Hz; preview 2–5 fps at about 640 px; command answer ≤ 1 s at 5 m line of sight (P8). | P6, P8 | Planned |
+| NFR-PERF-05 | Sustained runs on USB-C power. | 60-minute run without thermal shutdown. At *serious* thermal state preview and overlay slow down and the analysis rate may be capped with a visible notice; at *critical* the run stops and saves (P8). | P3, P5, P8 | Planned |
 
 ### 6.4 Reliability and data integrity (NFR-REL)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-REL-01 | A crash, kill or interruption during a run leaves a recoverable run; captured data is never deleted on failure. | Kill test (P8); unit tests of repair. | P5 | Planned |
-| NFR-REL-02 | Metadata files are written atomically; a run appears in the library only when its `Run.json` exists. | Code inspection. | P5 | Planned |
+| NFR-REL-01 | A crash, kill or interruption during a run leaves a recoverable run; captured data is never deleted on failure. | Kill test (P8); unit tests of repair. | P5, P8 | Planned |
+| NFR-REL-02 | Metadata files are written atomically; a run appears in the library once its `Run.json` exists (written at Start) and is marked *Recording* until Stop completes it. | Code inspection. | P5 | Planned |
 | NFR-REL-03 | The remote link cannot harm a run: own queue, never blocks capture or analysis, no file sends while a run is active. | Code inspection; P8. | P6 | Planned |
-| NFR-REL-04 | Reproducibility: every run records the app version and build, all parameters and the camera settings actually applied (format, exposure, ISO, lens position, intrinsics, MD). | `Run.json` content. | P5 | Planned |
+| NFR-REL-04 | Reproducibility: every run records the app version and build, all parameters and the camera state actually applied: format (size, binning, pixel format), frame duration, exposure, ISO, lens position, white balance, stabilization, video HDR, low-light boost, distortion correction, intrinsics, MD, absolute tilt, flake width, scale, rolling-shutter factor s and the ROI margin. | `Run.json` content. | P5 | Planned |
 
 ### 6.5 Storage and memory (NFR-STO)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
 | NFR-STO-01 | Data stored locally under the app's `Documents`, visible in the Files app. | Code inspection. | P5 | Planned |
-| NFR-STO-02 | Bounded memory: analysis buffers are reused; memory does not grow with run length; samples are streamed to disk. | Instruments / memory gauge in a 60-minute run (P8). | P1, P5 | Planned |
+| NFR-STO-02 | Bounded memory: analysis buffers are reused; memory does not grow with run length; samples are streamed to disk. | Instruments / memory gauge in a 60-minute run (P8). | P1, P5, P8 | Planned |
 | NFR-STO-03 | Data volume shown before Start (results per minute, frame images per minute). | Code inspection. | P5 | Planned |
 
 ### 6.6 Usability (NFR-USE)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-USE-01 | Usable with gloves and at arm's length: primary actions ≥ 44 × 44 pt, readouts on dark panels over the picture. | Owner check (P8). | P4 | Planned |
-| NFR-USE-02 | The remote alone is enough for normal operation: setup, ROI, runs, results. | Owner check (P8). | P6 | Planned |
+| NFR-USE-01 | Usable with gloves and at arm's length: primary actions ≥ 44 × 44 pt, readouts on dark panels over the picture. | Owner check (P8). | P4, P8 | Planned |
+| NFR-USE-02 | The remote alone is enough for normal operation: setup, ROI, runs, results. | Owner check (P8). | P6, P8 | Planned |
 | NFR-USE-03 | Validity is always visible: quality light with reasons, "—" for values without enough samples. | Code inspection. | P4 | Planned |
 | NFR-USE-04 | Units as §4.3; metric first with imperial alongside. | Code inspection. | P4 | Planned |
-| NFR-USE-05 | Screens fit any text size; readouts keep fixed places and shrink instead of wrapping (Phone LiDAR NFR-USE-06 pattern). | Owner check. | P4 | Planned |
+| NFR-USE-05 | Screens fit any text size; readouts keep fixed places and shrink instead of wrapping (Phone LiDAR NFR-USE-06 pattern). | Owner check. | P4, P8 | Planned |
 
 ### 6.7 Maintainability and testability (NFR-MNT, NFR-TST)
 
@@ -308,15 +312,15 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 |---|---|---|---|---|
 | NFR-MNT-01 | Warning-free build; one folder per module; pure logic separated from device code; doc comments on non-obvious maths; units in names or comments. | CI: 0 warnings. | P0 | Planned |
 | NFR-MNT-02 | Requirements, design, plan with change log, `CLAUDE.md` and the user guide stay current with every change. | Definition of done in the plan. | All | Planned |
-| NFR-TST-01 | Pure logic (statistics, estimators, MD estimation, quality metrics, scheduler, formats, remote protocol and crypto) is unit-tested in a host-less XCTest bundle on the iOS Simulator; CI runs it for every pull request. | CI `unit-tests` green. | P0–P6 | Planned |
-| NFR-TST-02 | Golden tests: synthetic images from fixed seeds with expected statistics, cross-checked against the Python lab (`tools/lab`). | Tests in CI. | P1, P2 | Planned |
-| NFR-TST-03 | On-device behaviour and accuracy are validated with documented procedures and recorded results. | P8 records. | P8 | Planned |
+| NFR-TST-01 | Pure logic (statistics, estimators, MD estimation, quality metrics, scheduler, formats, remote protocol and crypto) is unit-tested in a host-less XCTest bundle on the iOS Simulator; CI runs it for every pull request. | CI `unit-tests` green. | P0, P1, P2, P5, P6 | Planned |
+| NFR-TST-02 | Image tests of the estimators, of two kinds. **Parity**: a few small synthetic images rendered by `tools/lab` (8-bit PNG, ≤ 2 MB in all, synthetic only), with the lab's results as JSON in the app's angle convention, are test-bundle resources; the Swift results must match the lab's reference implementation of the same algorithm: *Edge orientation* from P1, within 0.05° on the mean and the spread; *Flake edges* once the lab has a Python reference of design §6.5 (P2.1), with tolerances set then. **Accuracy**: the Swift `SyntheticMat` renders mats at test time (seeded), and the results are checked against its truth with the NFR-ACC-02 conditions, tolerances and image counts. The test target is compiled with optimization so that the image tests fit the CI time. | Tests in CI. | P1, P2 | Planned |
+| NFR-TST-03 | On-device behaviour and accuracy are validated with documented procedures and recorded results. | P8 records. | P7, P8 | Planned |
 
 ### 6.8 Security and privacy (NFR-SEC)
 
 | ID | Requirement | Measure / target | Phase | Status |
 |---|---|---|---|---|
-| NFR-SEC-01 | Only the permissions used: camera, Local Network (`NSBonjourServices` = `_flakescan._tcp`), photo-library add for the share sheet. No microphone, location or photo-library read. | `Info.plist`. | P0, P6 | Planned |
+| NFR-SEC-01 | Only the permissions used: camera, Local Network (`NSBonjourServices` = `_flakescan._tcp`), photo-library add for the share sheet. No microphone, location or photo-library read. | `Info.plist`. | P0 | Planned |
 | NFR-SEC-02 | Local only: no internet services, analytics or accounts; the only network use is the remote link to the one paired phone. | Network code only in `Remote/`. | P6 | Planned |
 | NFR-SEC-03 | Repository hygiene: no secrets, Apple IDs, keys, certificates, profiles, personal data, plant pictures or run data in git. | `.gitignore`, review. | P0 | Planned |
 | NFR-SEC-04 | Remote link security as Phone LiDAR NFR-SEC-06, including its documented pairing limitation (design §10.10). | Code review; unit tests. | P6 | Planned |
@@ -346,7 +350,7 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 | ASM-01 | The camera looks straight down (within 3°) at the mat surface; the mat moves as a rigid body in a straight line (belt). |
 | ASM-02 | Flakes are elongated (length/width ≥ 3) with straight long edges; the visible top layer represents the layer's orientation. |
 | ASM-03 | Line speed 100–1,500 mm/s, camera height 0.5–3 m, strands 75–150 × 10–25 mm (to be confirmed, Q-01…Q-03). |
-| ASM-04 | Enough light for exposures of 1/2,000 s or shorter at ISO ≤ 1,600; a flicker-free supplementary light may be needed (Q-04). |
+| ASM-04 | Light: the 1 px blur budget needs a shutter of at most mm/px ÷ speed: 1/4,200 s at 1,500 mm/s and 0.36 mm/px, 1/8,300 s at 0.18 mm/px (about 0.5 m camera height). With the main camera (f/1.78) at ISO 1,600 that takes about 2,000 lux on the mat at 1/4,200 s and 4,000 lux at 1/8,300 s, more than most plant halls have, so a flicker-free LED light is likely needed (Q-04). Slower lines or a higher mount need proportionally less. |
 | ASM-05 | "The Lidar app" in the owner's request is Phone LiDAR; its remote link (pairing code, direct Wi-Fi, auto-reconnect, copy) is the model, extended with a live preview so the ROI can be drawn on the remote (Q-07). |
 
 ## 8. Open questions
@@ -356,34 +360,36 @@ Status values as in §4.3. Targets marked *proposed* are first values for the ow
 | Q-01 | Where will the camera look: the mat surface on the belt after which forming head, face or core layer? (Or strands falling from the orienter?) | Target direction, lighting, expected alignment, whether flakes are on a surface. | Mat surface on the belt; target 0° (face layer), selectable. |
 | Q-02 | Line speed range and the possible camera height above the mat. | Shutter (blur), analysis rate, coverage, resolution. | 100–1,500 mm/s; 0.5–3 m. |
 | Q-03 | Typical strand length and width; how regular are the edges? | Default flake width, minimum edge length, ROI size. | 75–150 × 10–25 mm. |
-| Q-04 | Lighting at the mount (LED, metal halide, fluorescent?). Can a flicker-free LED light be added? | Flicker banding and shadows bias angles (design §6.13). | Banding detection and row normalization on *Auto*. |
+| Q-04 | Lighting at the mount (LED, metal halide, fluorescent?) and roughly how bright? Can a flicker-free LED light be added? | The shutter that keeps motion blur within budget usually needs more light than the hall gives (ASM-04); flicker and one-sided light bias angles (design §6.13). | Light checked at setup; banding detection on *Auto*. |
 | Q-05 | Which statistics do you report today (mean angle, % within ±20° or ±30°, orientation index…), and is there a reference method to compare with (hand measurement on photos, a commercial system)? | Headline numbers, accuracy targets, validation. | §4.2 set; targets in §6.2. |
 | Q-06 | Model and iOS version of the second iPhone. | Deployment target for the remote role. | iOS 17 or later. |
 | Q-07 | Is "the Lidar app" your Phone LiDAR app? | Reuse of its remote link. | Yes (ASM-05). |
 | Q-08 | GitHub repository for this app (name, public or private). This session cannot create it. | CI is the only compiler. | `FlakeScanner`, public like Phone LiDAR. |
-| Q-09 | A 30–60 s video and a few photos of the mat from the intended mount position (kept out of the public repository). | Tuning and validating the methods on real flakes. | Synthetic images only. |
+| Q-09 | A 30–60 s video and a few photos of the mat from the intended mount position (kept out of the public repository); later the device probe's sample frames (P0.8). | Tuning and validating the methods on real flakes before P2. | Synthetic images only. |
 | Q-10 | Install with Sideloadly (free, 7 days) or TestFlight (paid), as for Phone LiDAR? | Re-signing effort on the plant floor. | Same as Phone LiDAR. |
 
 ## 9. Traceability
 
-Each requirement row above names its phase; the implementation plan names the requirements of each task. Status moves from *Planned* to *Implemented* at merge and to *Verified* when the P8 test that covers it is recorded.
+Each requirement row above names its phases; each task line of the implementation plan names the requirement IDs it delivers, and `tools/docs/check_trace.py` checks that the two agree (every ID is cited by at least one task, and its phase column equals the phases of the tasks citing it). Status moves from *Planned* to *Implemented* at merge and to *Verified* when the on-device test that covers it is recorded.
 
 | Group | Design sections | Plan phases | Tests |
 |---|---|---|---|
-| FR-APP | §3.1 | P0, P3, P4 | UI check (P8) |
-| FR-CAP | §3.2, §5, §6.10–6.12 | P3 | Device (P8 V1, V3) |
-| FR-ROI | §3.6, §6.1 | P1, P4, P6 | Unit (mapping), device |
-| FR-RATE | §6.9, §6.11 | P3, P4 | Unit (scheduler, coverage) |
-| FR-DIR | §6.8 | P2, P3, P4 | Unit (synthetic motion), device (P8 V4) |
-| FR-MEAS | §6.2–6.5 | P1, P2 | Unit (golden, invariance), device (P8 V5) |
-| FR-STAT | §6.6, §6.7 | P1, P4, P5 | Unit |
-| FR-QUAL | §6.10 | P1, P3 | Unit (synthetic blur, banding), device |
-| FR-CAL | §6.12 | P3, P8, P9 | Device |
-| FR-RUN, FR-LIB, FR-EXP | §7, §8, §9 | P5 | Unit (formats, repair), device |
-| FR-RMT | §3.7, §6.14, §10.10 | P6 | Unit (protocol, crypto, loopback), device (P8 V8) |
+| FR-APP | §3.1, §3.8, §6.16 | P0, P2, P3, P4, P6 | Diagnostics self-test; UI check (P8) |
+| FR-CAP | §3.2, §5, §6.10–6.12 | P0, P2, P3, P4, P5 | Unit (format ranking); device probe (P0.8); device (P8 V1) |
+| FR-ROI | §3.6, §6.1 | P1, P4, P6, P11 | Unit (mapping); device |
+| FR-RATE | §6.9, §6.11 | P2, P3, P4, P5 | Unit (scheduler, coverage) |
+| FR-DIR | §6.8 | P2, P3, P4, P5, P6, P8 | Unit (synthetic motion); device (P8 V4) |
+| FR-MEAS | §6.2–6.5 | P1, P2, P4, P10 | Unit (fixtures, invariance); device (P8 V5, V7) |
+| FR-STAT | §6.6, §6.7 | P1, P2, P3, P4, P5 | Unit |
+| FR-QUAL | §6.10, §6.16 | P1, P2, P3, P4, P5 | Unit (synthetic blur, banding, flicker); device probe; device |
+| FR-CAL | §6.5, §6.12, §6.15 | P2, P3, P4, P5, P8, P9 | Unit (width estimate, target detection); device (P8 V5, V6) |
+| FR-RUN, FR-LIB, FR-EXP | §7, §8, §9 | P4, P5, P11 | Unit (formats, repair); device (P8 V9, V11) |
+| FR-RMT | §3.7, §6.14, §10.10 | P6 | Unit (protocol, crypto, loopback); device (P8 V8) |
+| NFR | as cited in each row | as each row | as each row's measure |
 
 ## 10. Document history
 
 | Date | Change |
 |---|---|
 | 2026-11-23 | First version: requirements for v1 (M1) and later phases, from the owner's request (flake angle statistics, remote control like Phone LiDAR, accuracy over speed with a user-set shot rate, ROI drawn by dragging a box) and Phone LiDAR's operating context. |
+| 2026-11-23 | M0 review cycle 1 fixes ([reviews/2026-11-23-M0.md](reviews/2026-11-23-M0.md)): accuracy targets per condition with error bars (NFR-ACC-02); required flake width (FR-CAL-07); diagnostics and device probe (FR-APP-06); test-target mode designed (FR-CAL-06); display range around the target and signed deviations (§4.1); capture settings fixed and recorded (FR-CAP-02/03, NFR-REL-04); rolling-shutter and tilt targets restated (NFR-ACC-06/07); light needed for the blur budget (ASM-04); MD change and absolute level (FR-DIR-04, FR-QUAL-06); scheduler, snapshots, *Both*, library timing, settings versioning; phase column derived from the plan's task lines. |
