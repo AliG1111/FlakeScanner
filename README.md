@@ -4,7 +4,7 @@
 
 ## What the app will do
 
-- A phone mounted above the forming line looks straight down at the mat. You drag a box on the live picture to choose the **region of interest**; only that region is measured.
+- A phone mounted directly above the forming line looks straight down at the mat; its LiDAR measures the height, so speeds and sizes can be given in millimetres. You drag a box on the live picture to choose the **region of interest**; only that region is measured.
 - You choose how many **shots per second** are analyzed. Accuracy comes first: if the phone cannot keep up, it analyzes fewer shots and shows the rate it achieved.
 - The app finds the **machine direction** from the mat's movement and measures the angle of every flake edge to it: mean angle, spread, alignment, orientation factor, percent within ±10/20/30°, histogram and rose plot, trends over time, with confidence intervals.
 - **Quality checks** (exposure, focus, motion blur, lighting flicker, level) mark frames that would bias the result and leave them out, with the reason.
@@ -84,8 +84,9 @@ The job also keeps the signed `.ipa` as the artifact `FlakeScanner-signed-ipa-<r
 - Light the mat evenly from both sides or along the camera axis; light from one side shifts the mean angle by about 2°.
 - Flicker-free (DC-driven) LED light: dimmed LEDs make bands across the picture with short shutters, and many mains-powered lights flicker 100 or 120 times a second. The app checks the light for about a second after you press Start and warns (*Light flickers*), watches for brightness changes during it (*Light changed*), and corrects or leaves out shots with strong bands (*Light bands*), so bad light costs shots, not accuracy. Steady light is the real fix.
 - Keep the region of interest on the mat. If *Light bands* appears under steady light, look for a dark shadow or edge running from the top to the bottom of the screen through the box (the shadow of a cross member, a belt edge, a guide) and move the box or the phone so that it stays out.
-- Enough light for a short shutter: the mat may move at most about one pixel during the exposure, so the shutter must be no longer than the millimetres per pixel divided by the line speed, for example 1/4,200 s at 1,500 mm/s with 0.36 mm per pixel (camera about 1 m above the mat). That takes about 2,000 lux on the mat, more than most halls have, so plan for an added LED light. Motion blur pulls angles toward the machine direction.
-- Before the first run on a mount, measure the flake width by dragging across a few typical flakes; the app needs it, and a width set too small makes the spread read too high. The app keeps the width with the camera and picture size it was measured on: it adjusts it when you change the picture size and asks again when you change the camera.
+- Enough light for a short shutter: the mat may move at most about one pixel during the exposure, so the shutter must be no longer than the millimetres per pixel divided by the line speed, for example 1/2,800 s at 1,000 mm/s with 0.36 mm per pixel (camera about 1 m above the mat). That takes about 1,300 lux on the mat, more than most halls have, so plan for an added LED light. Motion blur pulls angles toward the machine direction.
+- The camera height may differ from mount to mount: the app measures it with the LiDAR for about a second when you press Start (keep the box on the mat), and you can type it in if the LiDAR gets no reading.
+- Before the first run on a mount, measure the flake width by dragging across a few typical flakes; the app needs it, and a width set too small makes the spread read too high. The app keeps the width with the camera and picture size it was measured on: it adjusts it when you change the picture size or the camera height and asks again when you change the camera.
 
 ## Developer documentation
 

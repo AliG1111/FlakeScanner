@@ -118,8 +118,8 @@ Design §3.8, §6.16, §10.8, §10.11.
 - [x] P0.4 CI workflow ported from Phone LiDAR (`unsigned-ipa`, `unit-tests`, optional `testflight`; names changed; actions and XcodeGen pinned; hash-locked `codemagic-cli-tools`) [NFR-BLD-01, NFR-BLD-02, NFR-BLD-03, NFR-SEC-06] (Sonnet 5.5 / medium)
 - [x] P0.5 CI green with 0 warnings; README steps 1–3 (repository, cloud build, Sideloadly / TestFlight install) [NFR-MNT-01] (Sonnet 5.5 / medium)
 - [x] P0.6 Change review until no new findings [process] (Opus 5.5 / high)
-- [ ] P0.7 Device probe build: Settings › Diagnostics with the camera report, sample bursts with per-frame camera data, light check and readout time by the phase slope (`FlickerReadout`, the only owner of the flicker index), zip export (design §3.8, §6.16); pure parts unit-tested on the cases of lab E13 (flicker bins and flicker frequency including half-wave drivers; readout time within ±3 % from 5 to 25 ms at 50 and 60 Hz with non-sinusoidal waveforms and weak flicker); change review [FR-APP-06, NFR-TST-01] (Opus 5.5 / high; screens Sonnet 5.5 / high)
-- [ ] P0.8 Probe on the iPhone 17 Pro Max at the line (owner, with a written procedure): format list, binning, distortion correction with intrinsics, capture rate per format, readout direction and time, plant light level, flicker and the exposure the light allows, sample frames of real flakes (Q-09) with their band gradient and darkest row under the plant light (checks the thresholds of design §6.2 and the light check's 0.03); agent analysis recorded in `docs/validation/`, design and requirements updated before P1 [FR-CAP-02, FR-CAP-03, NFR-ACC-07] (owner; analysis Opus 5.5 / high, Opus 5.5 / max when the design changes)
+- [ ] P0.7 Device probe build: Settings › Diagnostics with the camera report, sample bursts with per-frame camera data, light check and readout time by the phase slope (`FlickerReadout`, the only owner of the flicker index), LiDAR report and distance reading (formats with depth delivery, depth map size, whether custom exposure, locked focus and fixed frame durations work on the LiDAR camera, the time to switch cameras; `CameraScale`, design §6.17), zip export (design §3.8, §6.16); pure parts unit-tested on the cases of lab E13 (flicker bins and flicker frequency including half-wave drivers; readout time within ±3 % from 5 to 25 ms at 50 and 60 Hz with non-sinusoidal waveforms and weak flicker) and `CameraScale` on synthetic depth maps (footprint, median, spread, validity); change review [FR-APP-06, FR-CAL-02, NFR-TST-01] (Opus 5.5 / high; screens Sonnet 5.5 / high)
+- [ ] P0.8 Probe on the iPhone 17 Pro Max at the line (owner, with a written procedure): format list, binning, distortion correction with intrinsics, capture rate per format, readout direction and time, plant light level, flicker and the exposure the light allows, sample frames of real flakes (Q-09) with their band gradient and darkest row under the plant light (checks the thresholds of design §6.2 and the light check's 0.03), the LiDAR distance against a tape measure at two or more heights (centre and corner of a flat surface) and whether the run's format delivers depth (switch at Start or depth during runs, design §6.17); agent analysis recorded in `docs/validation/`, design and requirements updated before P1 [FR-CAP-02, FR-CAP-03, FR-CAL-02, NFR-ACC-07] (owner; analysis Opus 5.5 / high, Opus 5.5 / max when the design changes)
 
 ### P1 — Measurement core I
 
@@ -139,7 +139,7 @@ Design §6.1, §6.5, §6.8–6.11, §6.15.
 
 - [ ] P2.1 Lab: Python reference of the §6.5 detector (replacing OpenCV's LSD in the comparisons); tune merging and edge parameters on the probe's real frames and on synthetic sweeps, aiming at the NFR-ACC-02 targets for weaker alignment; improve the flake-width estimate and check the 12 px minimum; export *Flake edges* fixtures and reference results [NFR-ACC-02, NFR-TST-02] (Opus 5.5 / high)
 - [ ] P2.2 `EdgeSegmentDetector` (LSD-style line-support regions, sub-pixel axis, NFA, clipping at the ROI border) [FR-MEAS-01, FR-MEAS-05, NFR-PERF-02] (Opus 5.5 / high)
-- [ ] P2.3 `CollinearMerger`, `FlakeWidth` (paired-edge estimate, cross-check below 0.75 × or above 2 × the estimate, width stored with its camera and format and rescaled by the ratio of fx) [FR-MEAS-01, FR-CAL-07] (Opus 5.5 / high)
+- [ ] P2.3 `CollinearMerger`, `FlakeWidth` (paired-edge estimate, cross-check below 0.75 × or above 2 × the estimate, width stored with its camera, format and distance, rescaled by the ratio of fx and the inverse ratio of the distances) [FR-MEAS-01, FR-CAL-07] (Opus 5.5 / high)
 - [ ] P2.4 `PhaseCorrelator`, `MotionEstimator`, `DirectionTracker` (MD, speed, line stopped, MD change dated to its first deviating reading) [FR-DIR-01, FR-DIR-04, FR-DIR-05, FR-RATE-04, NFR-ACC-03] (Opus 5.5 / high)
 - [ ] P2.5 `AngleFrame`, `FrameAnalyzer` (quality on the raw ROI, the banding rules of design §6.2, both methods, overlay primitives, timing), `RunAggregator` (included frames, exclusion reasons, the hold through the MD-change confirmation, design §4, §6.8) [FR-MEAS-03, FR-MEAS-04, FR-QUAL-04, FR-STAT-01, FR-STAT-02, FR-DIR-04] (Opus 5.5 / high)
 - [ ] P2.6 `ShotScheduler` (a busy analysis never shifts the schedule; the run's skipped count as due shots not taken and each shot's whole missed intervals, both from moving time; achieved rate per moving time), `Coverage`, `ExposurePlanner`, `CameraFormats` (pure) [FR-RATE-02, FR-RATE-03, FR-CAP-02, FR-QUAL-03, NFR-ACC-05] (Opus 5.5 / high)
@@ -153,7 +153,7 @@ Design §6.1, §6.5, §6.8–6.11, §6.15.
 Design §3.2, §4, §5, §6.10.
 
 - [ ] P3.1 `CapturePipeline`: physical camera and ranked format, fixed image processing (stabilization, video HDR, low-light boost off; fixed frame duration), distortion correction and intrinsics, exposure / focus / white balance / torch with locks, video output on the data queue, motion per frame, scheduler, ROI copy into the buffer pool, analysis hand-off, light check at Start after the exposure and focus locks (1 s at 1/27 s, design §6.16) and brightness drift, interruption / error / system-pressure / thermal handling [FR-CAP-01, FR-CAP-02, FR-CAP-03, FR-CAP-04, FR-CAP-05, FR-CAP-06, FR-CAP-07, FR-CAP-09, FR-CAP-10, FR-RATE-01, FR-RATE-02, FR-RATE-04, FR-DIR-01, FR-DIR-04, FR-DIR-05, FR-QUAL-01, FR-QUAL-02, FR-QUAL-03, FR-QUAL-04, FR-STAT-01, NFR-ACC-05, NFR-PERF-01, NFR-PERF-05] (Opus 5.5 / high)
-- [ ] P3.2 `LevelMonitor` (absolute tilt, zero for bump detection); scale from the entered distance and the intrinsics; rolling-shutter factor s [FR-QUAL-06, FR-CAL-01, FR-CAL-02, NFR-ACC-06, NFR-ACC-07] (Opus 5.5 / high)
+- [ ] P3.2 `LevelMonitor` (absolute tilt, zero for bump detection); `LidarDistance` (distance at Start and on demand, design §6.17) and `CameraScale` (pure, unit-tested), mm per px from the LiDAR or typed-in distance and the intrinsics; rolling-shutter factor s [FR-QUAL-06, FR-CAL-01, FR-CAL-02, NFR-ACC-06, NFR-ACC-07] (Opus 5.5 / high)
 - [ ] P3.3 Camera permission flow (port) [FR-APP-04] (Sonnet 5.5 / high)
 - [ ] P3.4 CI green; change review until no new findings [process] (Opus 5.5 / high)
 
@@ -204,6 +204,7 @@ The owner runs each test with its procedure from P7.1 and shares the run files; 
 
 - [ ] V1 Capture timing with analysis on: capture rate stays at the format rate; achieved against requested rate [NFR-PERF-01] (owner; analysis Opus 5.5 / high)
 - [ ] V2 Analysis time against ROI size and method; profiling; optimization if below the target [NFR-PERF-02] (owner; analysis Opus 5.5 / high)
+- [ ] V3 Scale: LiDAR distance and mm per px against a tape measure and the printed target's known size, at two camera heights [FR-CAL-02] (owner; analysis Opus 5.5 / high)
 - [ ] V4 MD against the travel direction of the printed target's markers on the moving belt, and the MD-change exclusion and stop [NFR-ACC-03, FR-DIR-04] (owner; analysis Opus 5.5 / high)
 - [ ] V5 Printed target, still: angle sign, per-angle bias, spread [NFR-ACC-04, FR-CAL-06] (owner; analysis Opus 5.5 / high)
 - [ ] V6 Printed target moving on the belt (printed angles corrected by the measured taping angle) [NFR-ACC-04] (owner; analysis Opus 5.5 / high)
@@ -217,7 +218,7 @@ The owner runs each test with its procedure from P7.1 and shares the run files; 
 
 Scope set after P8 by the owner and an Opus 5.5 / max design update.
 
-- [ ] P9.1 LiDAR distance and surface tilt → measured scale and perspective rectification [FR-CAL-03] (Opus 5.5 / high)
+- [ ] P9.1 LiDAR surface tilt → perspective rectification [FR-CAL-03] (Opus 5.5 / high)
 - [ ] P9.2 Rolling-shutter correction from the measured readout time and speed [FR-CAL-04, NFR-ACC-07] (Opus 5.5 / high)
 - [ ] P9.3 Lens-distortion correction [FR-CAL-05] (Opus 5.5 / high)
 - [ ] P9.4 Flake length and width statistics with the scale [FR-STAT-08] (Opus 5.5 / high)
