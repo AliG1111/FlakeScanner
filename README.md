@@ -27,11 +27,13 @@ The workflow is called **Build iOS app**. It runs:
 - for every push to `main` that changes more than Markdown files,
 - by hand: **Actions › Build iOS app › Run workflow**.
 
-Each run has two jobs: `unsigned-ipa` (builds the app) and `unit-tests`. Both must be green.
+Each run has two jobs: `unsigned-ipa` (builds the app) and `unit-tests`. Both must be green. The `.ipa` is made even if `unit-tests` fails, so install only from a run where both jobs are green.
 
 To get the app, open the finished run and scroll to **Artifacts**. Download `FlakeScanner-unsigned-ipa-<run>`. It is a zip with the `.ipa` inside. Unzip it.
 
 The build number of the app is the run number. Run 12 gives `FlakeScanner-unsigned-ipa-12` and build 12. Artifacts are kept for 30 days.
+
+If a job fails, the run's summary page lists the compiler errors (**Build errors**) or the failed tests. Two more artifacts help: `build-log-<run>` (the full logs of the app job, kept 14 days) and `unit-test-results-<run>` (only when the tests fail: the test results and logs, kept 14 days).
 
 ### 3. Install
 
@@ -39,12 +41,14 @@ Pick one way.
 
 **A. Sideloadly with a free Apple ID.** The app must be re-signed every 7 days.
 
-1. On Windows, install **iTunes** (apple.com/itunes/download/win64) and the non-Store **iCloud** installer. The Microsoft Store versions do not work. Then install **Sideloadly** from sideloadly.io.
+1. On Windows, install **iTunes** (apple.com/itunes/download/win64) and the non-Store **iCloud** installer. The Microsoft Store versions do not work. Uninstall them first, and also the Store apps *Apple Devices*, *Apple Music* and *Apple TV*, which stop iTunes from seeing the phone. Then install **Sideloadly** from sideloadly.io.
 2. Plug in the iPhone, unlock it and tap **Trust This Computer**.
 3. Open Sideloadly, drag the `.ipa` onto it, enter your Apple ID and click **Start**. Enter the password and 2FA code when asked.
 4. On the iPhone, open **Settings › General › VPN & Device Management**, tap your Apple ID under **DEVELOPER APP** and tap **Trust**.
 5. Open **Settings › Privacy & Security › Developer Mode**, turn it on, restart the phone and confirm.
 6. After 7 days the app stops opening. Drag a newer `.ipa` (or the same one) into Sideloadly with the same Apple ID. Saved data stays.
+
+A free Apple ID allows only 3 sideloaded apps at a time and 10 new App IDs per 7 days. This matters if Phone LiDAR is installed too.
 
 **B. TestFlight with a paid Apple Developer Program account (99 USD a year).** Builds stay installable for 90 days and install over the air.
 
@@ -52,7 +56,7 @@ One-time setup, in a web browser:
 
 1. Enroll at developer.apple.com/programs.
 2. At developer.apple.com, under **Certificates, IDs & Profiles › Identifiers**, add an App ID with the bundle ID `ca.gervais.flakescanner`. If it is taken, pick another and change `PRODUCT_BUNDLE_IDENTIFIER` for the `FlakeScanner` target in `project.yml` (the test target uses `ca.gervais.flakescanner.tests`).
-3. At appstoreconnect.apple.com, add a new iOS app with that bundle ID.
+3. At appstoreconnect.apple.com, add a new iOS app with that bundle ID. The app name must be unique in App Store Connect: any unique name works. The SKU can be anything.
 4. In App Store Connect, under **Users and Access › Integrations › App Store Connect API**, create a team key with **App Manager** access. Note the Issuer ID and the Key ID. Download the `.p8` key file (you can download it only once).
 5. In PowerShell, make a certificate private key: `ssh-keygen -t rsa -b 2048 -m PEM -f cert_key`. Press Enter twice for an empty passphrase. Never commit these files.
 6. In the repository, open **Settings › Secrets and variables › Actions** and add four repository secrets:

@@ -65,8 +65,11 @@ private struct HomeRowLabel: View {
     }
 }
 
-/// App name, version and build number, and what the app does.
+/// App name, version and build number, what the app does, and a link to the user guide.
 struct AboutView: View {
+    /// The user guide (README) in the public repository.
+    private static let userGuideURL = URL(string: "https://github.com/AliG1111/FlakeScanner#readme")
+
     private var versionText: String {
         AppInfo.versionText(Bundle.main.infoDictionary ?? [:])
     }
@@ -86,6 +89,13 @@ struct AboutView: View {
             }
             Section {
                 Text("Measures the angle of the strands on an OSB forming line, with live and recorded statistics.")
+            }
+            if let guideURL = Self.userGuideURL {
+                Section {
+                    Link(destination: guideURL) {
+                        Label("User guide", systemImage: "book")
+                    }
+                }
             }
         }
         .navigationTitle("About")

@@ -29,6 +29,14 @@ final class NumTests: XCTestCase {
         XCTAssertEqual(Num.fixed(-1.46, 1), "-1.5")
     }
 
+    func testFixedRoundsExactTiesToEven() {
+        // 0.125, 2.5 and 0.5 are exact in binary, so these are true ties (C printf and Python agree).
+        XCTAssertEqual(Num.fixed(0.125, 2), "0.12")
+        XCTAssertEqual(Num.fixed(2.5, 0), "2")
+        XCTAssertEqual(Num.fixed(-0.5, 0), "0")
+        XCTAssertEqual(Num.fixed(0.375, 2), "0.38")
+    }
+
     func testFixedKeepsTheSignOfNegativeValues() {
         XCTAssertEqual(Num.fixed(-1.5, 1), "-1.5")
         XCTAssertEqual(Num.fixed(-90, 2), "-90.00")
@@ -81,12 +89,22 @@ final class CSVTests: XCTestCase {
         XCTAssertEqual(CSV.escape("line1\nline2"), "\"line1\nline2\"")
     }
 
+    func testEscapeQuotesFieldsWithCarriageReturns() {
+        XCTAssertEqual(CSV.escape("a\r\nb"), "\"a\r\nb\"")
+        XCTAssertEqual(CSV.escape("a\rb"), "\"a\rb\"")
+        XCTAssertEqual(CSV.escape("a\r"), "\"a\r\"")
+    }
+
     func testMakeJoinsRowsAndEndsWithNewline() {
         XCTAssertEqual(CSV.make([["a", "b"], ["1", "2"]]), "a,b\n1,2\n")
     }
 
     func testMakeEscapesEachField() {
         XCTAssertEqual(CSV.make([["x,y", "z"]]), "\"x,y\",z\n")
+    }
+
+    func testMakeQuotesFieldsWithCrLf() {
+        XCTAssertEqual(CSV.make([["a\r\nb", "c"]]), "\"a\r\nb\",c\n")
     }
 
     func testMakeWithNoRowsIsJustANewline() {
