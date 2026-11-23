@@ -1,0 +1,32 @@
+# Flake Scanner — flake angle statistics on the forming line, built without a Mac
+
+**Status (Nov 23, 2026): planning.** Requirements, design and the implementation plan are in [`docs/`](docs/). No app build exists yet; this guide grows with each phase.
+
+## What the app will do
+
+- A phone mounted above the forming line looks straight down at the mat. You drag a box on the live picture to choose the **region of interest**; only that region is measured.
+- You choose how many **shots per second** are analyzed. Accuracy comes first: if the phone cannot keep up, it analyzes fewer shots and shows the rate it achieved.
+- The app finds the **machine direction** from the mat's movement and measures the angle of every flake edge to it: mean angle, spread, alignment, orientation factor, percent within ±10/20/30°, histogram and rose plot, trends over time, with confidence intervals.
+- **Quality checks** (exposure, focus, motion blur, lighting flicker, level) mark frames that would bias the result and leave them out, with the reason.
+- **Runs** are saved as CSV and JSON (plus optional frame pictures) that open in Excel, and are visible in the Files app.
+- A **second iPhone** with the app controls the scanner over a direct phone-to-phone Wi-Fi link, like Phone LiDAR's remote: pair with a code, see the live picture, draw the region, start and stop, change settings, read the statistics, copy runs.
+
+## Building and installing (same as Phone LiDAR)
+
+1. **GitHub repository** — to be created by the owner (suggested name `FlakeScanner`; public gives free macOS build minutes). Not created yet.
+2. **Cloud build** — GitHub Actions compiles the app on a `macos-26` runner and produces `FlakeScanner-unsigned-ipa-<run>` (from phase P0).
+3. **Install** — with Sideloadly and a free Apple ID (re-sign every 7 days) or through TestFlight (paid Apple Developer Program), exactly as for Phone LiDAR.
+
+## Mounting and lighting (preliminary, from the design's error budget)
+
+- Camera pointing straight down; keep the level within 3°.
+- Phone in portrait with the mat moving across the screen (right ↔ left), as with Phone LiDAR: the movement then runs along the camera's readout and the rolling shutter does not bias the mean angle.
+- Keep the region of interest near the middle of the picture.
+- Light the mat evenly from both sides or along the camera axis; light from one side shifts angles by 1–2°.
+- Flicker-free (DC-driven) LED light avoids banding with short shutters; the app detects and reduces banding, but steady light is the real fix.
+- Enough light for a shutter of 1/2,000 s or shorter: motion blur pulls angles toward the machine direction.
+
+## Developer documentation
+
+- [Requirements](docs/requirements.md), [design](docs/design.md), [implementation plan and change log](docs/implementation-plan.md), [agent rules](CLAUDE.md).
+- [Algorithm lab](tools/lab/README.md): synthetic flake mats and estimator comparisons in Python.

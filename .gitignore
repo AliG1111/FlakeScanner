@@ -1,0 +1,41 @@
+# Generated on the build machine by XcodeGen
+*.xcodeproj/
+build/
+DerivedData/
+Payload/
+*.ipa
+.DS_Store
+
+# Secrets and signing material must never be committed
+cert_key
+cert_key.pub
+AuthKey_*.p8
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+
+# CI and build output
+logs/
+dist/
+*.xcresult
+simulators.json
+
+# Python lab caches and scratch output
+__pycache__/
+*.pyc
+tools/lab/out/
+
+# Plant media and run data must never be committed
+Reference/
+PlantMedia/
+Runs/
+run_*/
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.heic
+*.HEIC
+*.dng
+*.DNG

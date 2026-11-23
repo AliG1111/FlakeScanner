@@ -1,0 +1,217 @@
+E1  Mean-angle bias vs true mean direction (kappa 4, aspect 5:1)
+  mu    0: truth mean  -0.22  errors: A_tensor +0.24  A_tensor_coh +0.19  B_seg_count +0.48  B_seg_len +0.30  B_merged +0.41
+  mu   15: truth mean +14.39  errors: A_tensor +0.17  A_tensor_coh -0.01  B_seg_count +0.37  B_seg_len +0.42  B_merged +0.21
+  mu   30: truth mean +29.92  errors: A_tensor -0.47  A_tensor_coh -0.55  B_seg_count -0.69  B_seg_len -0.82  B_merged -0.50
+  mu   45: truth mean +45.65  errors: A_tensor +0.71  A_tensor_coh -0.29  B_seg_count -0.33  B_seg_len -0.35  B_merged -0.27
+  mu   60: truth mean +60.22  errors: A_tensor +0.35  A_tensor_coh +0.20  B_seg_count -0.00  B_seg_len +0.08  B_merged +0.05
+  mu   75: truth mean +75.28  errors: A_tensor +0.05  A_tensor_coh +0.28  B_seg_count +0.60  B_seg_len +0.82  B_merged +0.50
+  mu   90: truth mean -89.90  errors: A_tensor +0.01  A_tensor_coh +0.03  B_seg_count -0.51  B_seg_len -0.52  B_merged -0.19
+
+E2  Spread vs concentration (mu 0)
+ kappa 0.0
+  truth          n=   1056  mean  -68.32  sd  89.32  R 0.008  f -0.006  in20  22.3%  mad 45.25
+  A_tensor       n=  59536  mean  -87.03  sd  83.32  R 0.015  f -0.014  in20  23.4%  mad 45.49  | err mean -18.71  sd  -6.00  in20   +1.0  f -0.009
+  A_tensor_coh   n=  37041  mean  +88.25  sd  73.80  R 0.036  f -0.036  in20  22.1%  mad 46.34  | err mean -23.43  sd -15.51  in20   -0.2  f -0.031
+  B_seg_count    n=    738  mean  +75.91  sd  75.19  R 0.032  f -0.028  in20  22.6%  mad 46.00  | err mean -35.77  sd -14.12  in20   +0.3  f -0.022
+  B_seg_len      n=    738  mean  -86.06  sd  72.36  R 0.041  f -0.041  in20  22.4%  mad 46.49  | err mean -17.74  sd -16.96  in20   +0.1  f -0.035
+  B_merged       n=   1080  mean  +84.41  sd  72.95  R 0.039  f -0.038  in20  21.9%  mad 46.39  | err mean -27.27  sd -16.37  in20   -0.5  f -0.033
+  time per 768x768 image (Python/OpenCV, this PC): A 39 ms, B 45 ms
+ kappa 1.0
+  truth          n=   1049  mean   +2.00  sd  36.30  R 0.448  f +0.447  in20  44.1%  mad 28.67
+  A_tensor       n=  59536  mean   +1.53  sd  34.23  R 0.490  f +0.489  in20  47.8%  mad 27.11  | err mean  -0.47  sd  -2.08  in20   +3.6  f +0.042
+  A_tensor_coh   n=  40175  mean   +0.69  sd  31.55  R 0.545  f +0.545  in20  51.6%  mad 24.92  | err mean  -1.31  sd  -4.76  in20   +7.5  f +0.098
+  B_seg_count    n=    862  mean   +1.56  sd  31.71  R 0.542  f +0.541  in20  50.0%  mad 25.10  | err mean  -0.45  sd  -4.59  in20   +5.9  f +0.094
+  B_seg_len      n=    862  mean   +1.34  sd  31.42  R 0.548  f +0.547  in20  50.5%  mad 24.88  | err mean  -0.66  sd  -4.88  in20   +6.4  f +0.100
+  B_merged       n=   1105  mean   +0.93  sd  34.29  R 0.489  f +0.488  in20  47.5%  mad 27.00  | err mean  -1.08  sd  -2.01  in20   +3.4  f +0.041
+  time per 768x768 image (Python/OpenCV, this PC): A 37 ms, B 42 ms
+ kappa 2.0
+  truth          n=   1075  mean   -0.90  sd  24.90  R 0.685  f +0.685  in20  61.2%  mad 19.76
+  A_tensor       n=  59536  mean   -0.77  sd  25.02  R 0.683  f +0.683  in20  65.6%  mad 19.39  | err mean  +0.13  sd  +0.12  in20   +4.4  f -0.002
+  A_tensor_coh   n=  43574  mean   -0.38  sd  22.26  R 0.739  f +0.739  in20  68.7%  mad 17.34  | err mean  +0.52  sd  -2.64  in20   +7.5  f +0.054
+  B_seg_count    n=    941  mean   -0.47  sd  21.98  R 0.745  f +0.745  in20  67.7%  mad 17.30  | err mean  +0.43  sd  -2.92  in20   +6.5  f +0.060
+  B_seg_len      n=    941  mean   -0.43  sd  21.46  R 0.755  f +0.755  in20  69.0%  mad 16.85  | err mean  +0.46  sd  -3.44  in20   +7.8  f +0.070
+  B_merged       n=   1161  mean   -0.88  sd  23.70  R 0.710  f +0.710  in20  64.3%  mad 18.75  | err mean  +0.02  sd  -1.20  in20   +3.1  f +0.025
+  time per 768x768 image (Python/OpenCV, this PC): A 37 ms, B 38 ms
+ kappa 4.0
+  truth          n=   1051  mean   -0.37  sd  15.29  R 0.867  f +0.867  in20  82.0%  mad 11.95
+  A_tensor       n=  59536  mean   -0.69  sd  18.38  R 0.814  f +0.814  in20  82.3%  mad 13.47  | err mean  -0.32  sd  +3.09  in20   +0.3  f -0.053
+  A_tensor_coh   n=  47011  mean   -0.71  sd  14.16  R 0.885  f +0.885  in20  87.9%  mad 10.62  | err mean  -0.34  sd  -1.13  in20   +5.9  f +0.018
+  B_seg_count    n=   1110  mean   -0.39  sd  13.33  R 0.897  f +0.897  in20  87.2%  mad 10.28  | err mean  -0.03  sd  -1.97  in20   +5.2  f +0.030
+  B_seg_len      n=   1110  mean   -0.43  sd  13.07  R 0.901  f +0.901  in20  88.0%  mad 10.08  | err mean  -0.06  sd  -2.22  in20   +5.9  f +0.034
+  B_merged       n=   1261  mean   -0.34  sd  14.34  R 0.882  f +0.882  in20  85.1%  mad 11.00  | err mean  +0.03  sd  -0.95  in20   +3.1  f +0.015
+  time per 768x768 image (Python/OpenCV, this PC): A 36 ms, B 38 ms
+ kappa 8.0
+  truth          n=   1036  mean   +0.27  sd  10.55  R 0.934  f +0.934  in20  93.3%  mad  8.32
+  A_tensor       n=  59536  mean   -0.28  sd  16.51  R 0.847  f +0.847  in20  89.4%  mad 11.42  | err mean  -0.55  sd  +5.96  in20   -4.0  f -0.087
+  A_tensor_coh   n=  46733  mean   -0.25  sd  11.87  R 0.918  f +0.918  in20  94.5%  mad  8.51  | err mean  -0.52  sd  +1.32  in20   +1.1  f -0.017
+  B_seg_count    n=   1223  mean   -0.39  sd  10.51  R 0.935  f +0.935  in20  93.8%  mad  8.09  | err mean  -0.66  sd  -0.03  in20   +0.4  f +0.000
+  B_seg_len      n=   1223  mean   -0.20  sd  10.10  R 0.940  f +0.940  in20  94.5%  mad  7.78  | err mean  -0.47  sd  -0.45  in20   +1.1  f +0.005
+  B_merged       n=   1336  mean   -0.33  sd  10.96  R 0.929  f +0.929  in20  93.4%  mad  8.41  | err mean  -0.60  sd  +0.41  in20   +0.1  f -0.005
+  time per 768x768 image (Python/OpenCV, this PC): A 36 ms, B 38 ms
+
+E3  Motion blur along MD (mu 10, kappa 4)
+ blur 0 px
+  truth          n=   1032  mean   +9.64  sd  15.80  R 0.859  f +0.811  in20  71.6%  mad 14.82
+  A_tensor       n=  59536  mean   +9.33  sd  18.82  R 0.806  f +0.764  in20  73.3%  mad 16.35  | err mean  -0.31  sd  +3.02  in20   +1.7  f -0.047
+  A_tensor_coh   n=  46200  mean   +9.55  sd  14.88  R 0.874  f +0.826  in20  76.6%  mad 14.08  | err mean  -0.09  sd  -0.92  in20   +5.0  f +0.015
+  B_seg_count    n=   1096  mean   +9.40  sd  13.99  R 0.888  f +0.840  in20  76.6%  mad 13.44  | err mean  -0.24  sd  -1.81  in20   +5.0  f +0.029
+  B_seg_len      n=   1096  mean   +9.02  sd  13.86  R 0.890  f +0.846  in20  77.1%  mad 13.26  | err mean  -0.62  sd  -1.94  in20   +5.5  f +0.035
+  B_merged       n=   1220  mean   +9.27  sd  14.74  R 0.876  f +0.830  in20  75.2%  mad 13.84  | err mean  -0.37  sd  -1.05  in20   +3.6  f +0.020
+  time per 768x768 image (Python/OpenCV, this PC): A 27 ms, B 32 ms
+ blur 2 px
+  truth          n=   1032  mean   +9.64  sd  15.80  R 0.859  f +0.811  in20  71.6%  mad 14.82
+  A_tensor       n=  59536  mean   +9.14  sd  18.11  R 0.819  f +0.778  in20  74.4%  mad 15.79  | err mean  -0.50  sd  +2.31  in20   +2.8  f -0.033
+  A_tensor_coh   n=  46734  mean   +9.45  sd  14.60  R 0.878  f +0.831  in20  77.1%  mad 13.86  | err mean  -0.20  sd  -1.20  in20   +5.5  f +0.020
+  B_seg_count    n=   1112  mean   +9.20  sd  14.00  R 0.888  f +0.842  in20  76.0%  mad 13.38  | err mean  -0.44  sd  -1.80  in20   +4.4  f +0.031
+  B_seg_len      n=   1112  mean   +8.97  sd  13.83  R 0.890  f +0.847  in20  76.6%  mad 13.25  | err mean  -0.67  sd  -1.97  in20   +5.0  f +0.036
+  B_merged       n=   1222  mean   +9.21  sd  14.58  R 0.879  f +0.834  in20  75.0%  mad 13.74  | err mean  -0.43  sd  -1.22  in20   +3.4  f +0.023
+  time per 768x768 image (Python/OpenCV, this PC): A 34 ms, B 36 ms
+ blur 4 px
+  truth          n=   1032  mean   +9.64  sd  15.80  R 0.859  f +0.811  in20  71.6%  mad 14.82
+  A_tensor       n=  59536  mean   +8.57  sd  16.20  R 0.852  f +0.814  in20  77.7%  mad 14.28  | err mean  -1.07  sd  +0.40  in20   +6.1  f +0.004
+  A_tensor_coh   n=  48253  mean   +9.06  sd  13.84  R 0.890  f +0.846  in20  78.8%  mad 13.22  | err mean  -0.58  sd  -1.96  in20   +7.2  f +0.035
+  B_seg_count    n=   1105  mean   +8.90  sd  13.50  R 0.895  f +0.852  in20  77.8%  mad 12.86  | err mean  -0.74  sd  -2.30  in20   +6.2  f +0.041
+  B_seg_len      n=   1105  mean   +8.62  sd  13.47  R 0.895  f +0.855  in20  78.2%  mad 12.80  | err mean  -1.02  sd  -2.33  in20   +6.6  f +0.044
+  B_merged       n=   1211  mean   +8.82  sd  13.84  R 0.890  f +0.848  in20  77.0%  mad 13.08  | err mean  -0.83  sd  -1.95  in20   +5.4  f +0.037
+  time per 768x768 image (Python/OpenCV, this PC): A 27 ms, B 31 ms
+ blur 8 px
+  truth          n=   1032  mean   +9.64  sd  15.80  R 0.859  f +0.811  in20  71.6%  mad 14.82
+  A_tensor       n=  59536  mean   +7.33  sd  13.48  R 0.895  f +0.866  in20  83.7%  mad 11.96  | err mean  -2.31  sd  -2.32  in20  +12.1  f +0.055
+  A_tensor_coh   n=  50933  mean   +8.15  sd  12.71  R 0.906  f +0.870  in20  82.4%  mad 12.04  | err mean  -1.49  sd  -3.09  in20  +10.8  f +0.059
+  B_seg_count    n=   1116  mean   +8.24  sd  12.89  R 0.904  f +0.867  in20  80.9%  mad 12.17  | err mean  -1.40  sd  -2.91  in20   +9.3  f +0.056
+  B_seg_len      n=   1116  mean   +8.09  sd  12.75  R 0.906  f +0.870  in20  81.2%  mad 12.07  | err mean  -1.56  sd  -3.05  in20   +9.6  f +0.059
+  B_merged       n=   1171  mean   +8.22  sd  12.95  R 0.903  f +0.866  in20  80.4%  mad 12.24  | err mean  -1.42  sd  -2.85  in20   +8.8  f +0.055
+  time per 768x768 image (Python/OpenCV, this PC): A 30 ms, B 32 ms
+
+E4  Row banding (flicker + rolling shutter), 10 % amplitude, 40-row period (mu 10, kappa 4)
+ banding, row normalization off
+  truth          n=   1064  mean   +9.94  sd  16.32  R 0.850  f +0.800  in20  70.4%  mad 15.19
+  A_tensor       n=  59536  mean   +8.99  sd  17.58  R 0.828  f +0.788  in20  75.9%  mad 15.31  | err mean  -0.95  sd  +1.26  in20   +5.5  f -0.012
+  A_tensor_coh   n=  47569  mean   +8.21  sd  13.37  R 0.897  f +0.860  in20  82.1%  mad 12.25  | err mean  -1.73  sd  -2.95  in20  +11.7  f +0.061
+  B_seg_count    n=   1228  mean   +8.14  sd  13.91  R 0.889  f +0.853  in20  78.3%  mad 12.89  | err mean  -1.80  sd  -2.41  in20   +7.9  f +0.054
+  B_seg_len      n=   1228  mean   +7.96  sd  13.70  R 0.892  f +0.858  in20  79.1%  mad 12.56  | err mean  -1.98  sd  -2.62  in20   +8.7  f +0.058
+  B_merged       n=   1476  mean   +8.91  sd  14.43  R 0.881  f +0.839  in20  75.9%  mad 13.50  | err mean  -1.03  sd  -1.89  in20   +5.5  f +0.039
+  time per 768x768 image (Python/OpenCV, this PC): A 30 ms, B 39 ms
+ banding, row normalization on
+  truth          n=   1064  mean   +9.94  sd  16.32  R 0.850  f +0.800  in20  70.4%  mad 15.19
+  A_tensor       n=  59536  mean   +9.95  sd  18.58  R 0.810  f +0.762  in20  72.7%  mad 16.61  | err mean  +0.01  sd  +2.26  in20   +2.3  f -0.038
+  A_tensor_coh   n=  46497  mean   +9.23  sd  14.35  R 0.882  f +0.837  in20  78.4%  mad 13.54  | err mean  -0.71  sd  -1.98  in20   +8.0  f +0.037
+  B_seg_count    n=   1116  mean   +9.03  sd  14.33  R 0.882  f +0.839  in20  75.9%  mad 13.53  | err mean  -0.91  sd  -1.99  in20   +5.5  f +0.039
+  B_seg_len      n=   1116  mean   +8.96  sd  14.11  R 0.886  f +0.843  in20  76.9%  mad 13.30  | err mean  -0.98  sd  -2.21  in20   +6.5  f +0.043
+  B_merged       n=   1292  mean   +9.11  sd  15.34  R 0.866  f +0.823  in20  73.6%  mad 14.19  | err mean  -0.84  sd  -0.98  in20   +3.2  f +0.024
+  time per 768x768 image (Python/OpenCV, this PC): A 28 ms, B 35 ms
+
+E5  Directional shadow (raking light from one side), offset (1.5, 0) px (mu 30, kappa 4)
+ shadow off
+  truth          n=   1021  mean  +29.33  sd  15.26  R 0.868  f +0.451  in20  26.2%  mad 29.72
+  A_tensor       n=  59536  mean  +29.01  sd  19.24  R 0.798  f +0.423  in20  23.3%  mad 30.94  | err mean  -0.32  sd  +3.98  in20   -2.9  f -0.029
+  A_tensor_coh   n=  46653  mean  +28.98  sd  15.24  R 0.868  f +0.461  in20  22.8%  mad 29.77  | err mean  -0.35  sd  -0.03  in20   -3.4  f +0.009
+  B_seg_count    n=   1108  mean  +29.12  sd  14.24  R 0.884  f +0.465  in20  24.6%  mad 29.43  | err mean  -0.21  sd  -1.03  in20   -1.5  f +0.014
+  B_seg_len      n=   1108  mean  +29.31  sd  14.05  R 0.887  f +0.462  in20  24.1%  mad 29.61  | err mean  -0.02  sd  -1.22  in20   -2.0  f +0.010
+  B_merged       n=   1251  mean  +29.15  sd  14.64  R 0.878  f +0.461  in20  25.2%  mad 29.47  | err mean  -0.18  sd  -0.63  in20   -1.0  f +0.010
+  time per 768x768 image (Python/OpenCV, this PC): A 30 ms, B 37 ms
+ shadow on
+  truth          n=   1021  mean  +29.33  sd  15.26  R 0.868  f +0.451  in20  26.2%  mad 29.72
+  A_tensor       n=  59536  mean  +31.05  sd  20.87  R 0.767  f +0.359  in20  19.9%  mad 33.19  | err mean  +1.72  sd  +5.60  in20   -6.3  f -0.092
+  A_tensor_coh   n=  44907  mean  +30.30  sd  16.08  R 0.854  f +0.419  in20  20.1%  mad 31.22  | err mean  +0.97  sd  +0.82  in20   -6.0  f -0.032
+  B_seg_count    n=   1246  mean  +30.47  sd  14.13  R 0.886  f +0.430  in20  21.4%  mad 30.73  | err mean  +1.14  sd  -1.14  in20   -4.7  f -0.021
+  B_seg_len      n=   1246  mean  +30.92  sd  14.02  R 0.887  f +0.419  in20  20.3%  mad 31.18  | err mean  +1.59  sd  -1.25  in20   -5.8  f -0.033
+  B_merged       n=   1426  mean  +30.50  sd  14.89  R 0.874  f +0.423  in20  21.9%  mad 30.86  | err mean  +1.17  sd  -0.38  in20   -4.2  f -0.028
+  time per 768x768 image (Python/OpenCV, this PC): A 26 ms, B 34 ms
+
+E6  Strand aspect ratio (mu 0, kappa 4): end edges dilute the texture estimate
+ length 60 px x width 24 px (aspect 2.5)
+  truth          n=   1650  mean   +0.19  sd  15.29  R 0.867  f +0.867  in20  81.0%  mad 12.13
+  A_tensor       n=  59536  mean   +0.83  sd  27.55  R 0.630  f +0.629  in20  70.2%  mad 20.71  | err mean  +0.64  sd +12.26  in20  -10.7  f -0.238
+  A_tensor_coh   n=  36533  mean   +0.58  sd  21.09  R 0.763  f +0.762  in20  78.7%  mad 15.67  | err mean  +0.39  sd  +5.80  in20   -2.3  f -0.105
+  B_seg_count    n=    977  mean   +0.49  sd  14.98  R 0.872  f +0.872  in20  84.4%  mad 11.45  | err mean  +0.30  sd  -0.31  in20   +3.5  f +0.005
+  B_seg_len      n=    977  mean   +0.48  sd  14.89  R 0.874  f +0.874  in20  84.5%  mad 11.38  | err mean  +0.29  sd  -0.40  in20   +3.5  f +0.006
+  B_merged       n=   1210  mean   +0.18  sd  16.39  R 0.849  f +0.849  in20  81.4%  mad 12.56  | err mean  -0.01  sd  +1.10  in20   +0.4  f -0.018
+  time per 768x768 image (Python/OpenCV, this PC): A 28 ms, B 32 ms
+ length 120 px x width 24 px (aspect 5.0)
+  truth          n=   1040  mean   -0.26  sd  15.34  R 0.866  f +0.866  in20  81.7%  mad 12.13
+  A_tensor       n=  59536  mean   -0.77  sd  18.22  R 0.817  f +0.817  in20  83.0%  mad 13.52  | err mean  -0.51  sd  +2.89  in20   +1.3  f -0.050
+  A_tensor_coh   n=  46342  mean   -0.45  sd  14.50  R 0.880  f +0.880  in20  87.1%  mad 11.07  | err mean  -0.19  sd  -0.84  in20   +5.4  f +0.013
+  B_seg_count    n=   1139  mean   -0.52  sd  13.88  R 0.889  f +0.889  in20  85.6%  mad 10.94  | err mean  -0.26  sd  -1.45  in20   +3.9  f +0.023
+  B_seg_len      n=   1139  mean   -0.57  sd  13.79  R 0.891  f +0.890  in20  85.8%  mad 10.87  | err mean  -0.31  sd  -1.54  in20   +4.0  f +0.024
+  B_merged       n=   1264  mean   -0.64  sd  14.19  R 0.885  f +0.884  in20  84.7%  mad 11.21  | err mean  -0.38  sd  -1.15  in20   +3.0  f +0.018
+  time per 768x768 image (Python/OpenCV, this PC): A 28 ms, B 32 ms
+ length 240 px x width 24 px (aspect 10.0)
+  truth          n=    553  mean   +0.60  sd  15.20  R 0.869  f +0.868  in20  79.7%  mad 12.20
+  A_tensor       n=  59536  mean   +0.41  sd  15.33  R 0.867  f +0.866  in20  85.9%  mad 11.57  | err mean  -0.18  sd  +0.13  in20   +6.1  f -0.002
+  A_tensor_coh   n=  52317  mean   +0.23  sd  13.35  R 0.897  f +0.897  in20  87.5%  mad 10.37  | err mean  -0.36  sd  -1.85  in20   +7.8  f +0.029
+  B_seg_count    n=   1162  mean   -0.13  sd  13.95  R 0.888  f +0.888  in20  83.5%  mad 11.08  | err mean  -0.73  sd  -1.25  in20   +3.7  f +0.020
+  B_seg_len      n=   1162  mean   +0.22  sd  13.62  R 0.893  f +0.893  in20  84.1%  mad 10.77  | err mean  -0.38  sd  -1.59  in20   +4.4  f +0.025
+  B_merged       n=   1192  mean   +0.17  sd  14.66  R 0.877  f +0.877  in20  81.5%  mad 11.65  | err mean  -0.43  sd  -0.54  in20   +1.8  f +0.009
+  time per 768x768 image (Python/OpenCV, this PC): A 26 ms, B 30 ms
+
+E7  Mat density (occlusion) at kappa 2, mu 0: crossing strands are cut into short visible pieces
+ 120 strands per 768 x 768 px
+  truth          n=    342  mean   -0.88  sd  23.83  R 0.708  f +0.707  in20  64.3%  mad 18.61
+  A_tensor       n=  59536  mean   -0.48  sd  28.07  R 0.619  f +0.619  in20  60.8%  mad 21.87  | err mean  +0.39  sd  +4.24  in20   -3.5  f -0.089
+  A_tensor_coh   n=  34667  mean   -1.97  sd  26.44  R 0.653  f +0.652  in20  63.6%  mad 20.58  | err mean  -1.09  sd  +2.61  in20   -0.7  f -0.056
+  B_seg_count    n=    650  mean   -2.00  sd  22.65  R 0.732  f +0.730  in20  65.7%  mad 17.78  | err mean  -1.12  sd  -1.18  in20   +1.4  f +0.023
+  B_seg_len      n=    650  mean   -1.55  sd  21.78  R 0.749  f +0.748  in20  68.0%  mad 17.02  | err mean  -0.67  sd  -2.04  in20   +3.6  f +0.041
+  B_merged       n=    643  mean   -1.96  sd  22.99  R 0.725  f +0.723  in20  65.3%  mad 18.01  | err mean  -1.08  sd  -0.83  in20   +1.0  f +0.016
+  time per 768x768 image (Python/OpenCV, this PC): A 25 ms, B 22 ms
+ 650 strands per 768 x 768 px
+  truth          n=   1087  mean   +0.14  sd  25.65  R 0.670  f +0.670  in20  60.3%  mad 20.26
+  A_tensor       n=  59536  mean   -1.15  sd  26.13  R 0.660  f +0.659  in20  64.3%  mad 20.30  | err mean  -1.30  sd  +0.48  in20   +4.0  f -0.011
+  A_tensor_coh   n=  43162  mean   -0.71  sd  23.55  R 0.713  f +0.713  in20  67.2%  mad 18.24  | err mean  -0.85  sd  -2.09  in20   +6.8  f +0.043
+  B_seg_count    n=    988  mean   -0.05  sd  24.26  R 0.699  f +0.699  in20  64.3%  mad 19.00  | err mean  -0.19  sd  -1.38  in20   +3.9  f +0.029
+  B_seg_len      n=    988  mean   -0.19  sd  23.84  R 0.707  f +0.707  in20  65.0%  mad 18.62  | err mean  -0.33  sd  -1.81  in20   +4.7  f +0.038
+  B_merged       n=   1213  mean   -0.44  sd  25.10  R 0.681  f +0.681  in20  62.7%  mad 19.80  | err mean  -0.58  sd  -0.54  in20   +2.3  f +0.011
+  time per 768x768 image (Python/OpenCV, this PC): A 28 ms, B 33 ms
+ 1300 strands per 768 x 768 px
+  truth          n=   1114  mean   -1.22  sd  25.02  R 0.683  f +0.682  in20  61.7%  mad 19.76
+  A_tensor       n=  59536  mean   -0.77  sd  24.07  R 0.703  f +0.702  in20  66.7%  mad 18.60  | err mean  +0.45  sd  -0.95  in20   +5.0  f +0.020
+  A_tensor_coh   n=  43718  mean   -0.70  sd  20.60  R 0.772  f +0.772  in20  71.7%  mad 15.96  | err mean  +0.52  sd  -4.42  in20  +10.0  f +0.090
+  B_seg_count    n=    831  mean   -0.33  sd  20.48  R 0.775  f +0.774  in20  72.2%  mad 15.77  | err mean  +0.89  sd  -4.54  in20  +10.5  f +0.092
+  B_seg_len      n=    831  mean   -0.59  sd  20.52  R 0.774  f +0.774  in20  72.6%  mad 15.74  | err mean  +0.63  sd  -4.50  in20  +10.9  f +0.091
+  B_merged       n=   1041  mean   -0.39  sd  21.71  R 0.750  f +0.750  in20  69.5%  mad 16.87  | err mean  +0.82  sd  -3.31  in20   +7.9  f +0.068
+  time per 768x768 image (Python/OpenCV, this PC): A 29 ms, B 34 ms
+
+E8  Rotational bias, paired with the same strands (kappa 16, 3x images)
+  mu   0.0: truth mean  -0.04 (n 3050)  errors: A_tensor +0.28  A_tensor_coh +0.16  B_seg_count +0.23  B_seg_len +0.22  B_merged +0.19
+  mu  10.0: truth mean +10.18 (n 3015)  errors: A_tensor -0.20  A_tensor_coh -0.16  B_seg_count -0.32  B_seg_len -0.35  B_merged -0.15
+  mu  22.5: truth mean +22.55 (n 3059)  errors: A_tensor +0.01  A_tensor_coh -0.05  B_seg_count -0.04  B_seg_len -0.03  B_merged -0.02
+  mu  30.0: truth mean +30.06 (n 3044)  errors: A_tensor +0.10  A_tensor_coh +0.09  B_seg_count +0.02  B_seg_len -0.03  B_merged -0.10
+  mu  45.0: truth mean +44.96 (n 3063)  errors: A_tensor -0.12  A_tensor_coh -0.03  B_seg_count +0.09  B_seg_len +0.04  B_merged +0.10
+  mu  67.5: truth mean +67.69 (n 3033)  errors: A_tensor +0.12  A_tensor_coh +0.19  B_seg_count +0.05  B_seg_len +0.12  B_merged +0.01
+  mu  80.0: truth mean +79.97 (n 3003)  errors: A_tensor -0.25  A_tensor_coh -0.09  B_seg_count +0.26  B_seg_len +0.16  B_merged +0.14
+  mu  90.0: truth mean -89.69 (n 3061)  errors: A_tensor +0.11  A_tensor_coh -0.09  B_seg_count +0.06  B_seg_len +0.06  B_merged +0.02
+
+E9  Collinear merging of edge pieces vs mat density (mu 0)
+ kappa 2.0, 650 strands
+  truth          n=   1066  mean   -0.18  sd  25.01  R 0.683  f +0.683  in20  58.8%  mad 19.93
+  A_tensor       n=  59536  mean   +1.90  sd  26.62  R 0.649  f +0.648  in20  62.3%  mad 21.04  | err mean  +2.08  sd  +1.61  in20   +3.5  f -0.035
+  A_tensor_coh   n=  43588  mean   +0.72  sd  23.24  R 0.720  f +0.719  in20  66.4%  mad 18.25  | err mean  +0.90  sd  -1.78  in20   +7.6  f +0.036
+  B_seg_count    n=    962  mean   +0.75  sd  22.73  R 0.730  f +0.730  in20  65.8%  mad 17.97  | err mean  +0.93  sd  -2.29  in20   +7.0  f +0.047
+  B_seg_len      n=    962  mean   +1.05  sd  22.68  R 0.731  f +0.730  in20  66.0%  mad 17.99  | err mean  +1.23  sd  -2.33  in20   +7.2  f +0.047
+  B_merged       n=   1182  mean   +0.03  sd  23.36  R 0.717  f +0.717  in20  63.6%  mad 18.50  | err mean  +0.21  sd  -1.65  in20   +4.8  f +0.034
+  time per 768x768 image (Python/OpenCV, this PC): A 27 ms, B 31 ms
+ kappa 2.0, 1300 strands
+  truth          n=   1099  mean   -0.80  sd  24.32  R 0.697  f +0.697  in20  61.1%  mad 19.07
+  A_tensor       n=  59536  mean   -1.68  sd  23.93  R 0.706  f +0.704  in20  66.5%  mad 18.62  | err mean  -0.89  sd  -0.39  in20   +5.5  f +0.007
+  A_tensor_coh   n=  43977  mean   -1.76  sd  20.89  R 0.767  f +0.765  in20  70.9%  mad 16.26  | err mean  -0.97  sd  -3.43  in20   +9.8  f +0.068
+  B_seg_count    n=    880  mean   -2.11  sd  21.83  R 0.748  f +0.746  in20  66.5%  mad 17.15  | err mean  -1.31  sd  -2.49  in20   +5.4  f +0.049
+  B_seg_len      n=    880  mean   -2.01  sd  21.06  R 0.763  f +0.761  in20  68.4%  mad 16.53  | err mean  -1.21  sd  -3.26  in20   +7.3  f +0.064
+  B_merged       n=   1059  mean   -1.76  sd  22.49  R 0.735  f +0.734  in20  65.4%  mad 17.61  | err mean  -0.96  sd  -1.84  in20   +4.4  f +0.036
+  time per 768x768 image (Python/OpenCV, this PC): A 31 ms, B 36 ms
+ kappa 4.0, 650 strands
+  truth          n=   1040  mean   +0.21  sd  15.81  R 0.859  f +0.859  in20  80.4%  mad 12.51
+  A_tensor       n=  59536  mean   +0.25  sd  19.19  R 0.799  f +0.799  in20  81.1%  mad 14.25  | err mean  +0.04  sd  +3.38  in20   +0.8  f -0.060
+  A_tensor_coh   n=  46549  mean   +0.27  sd  15.49  R 0.864  f +0.864  in20  85.3%  mad 11.75  | err mean  +0.06  sd  -0.33  in20   +4.9  f +0.005
+  B_seg_count    n=   1065  mean   +0.28  sd  14.91  R 0.873  f +0.873  in20  83.8%  mad 11.64  | err mean  +0.07  sd  -0.90  in20   +3.5  f +0.015
+  B_seg_len      n=   1065  mean   +0.49  sd  14.54  R 0.879  f +0.879  in20  85.0%  mad 11.36  | err mean  +0.28  sd  -1.27  in20   +4.7  f +0.020
+  B_merged       n=   1241  mean   +0.33  sd  15.51  R 0.864  f +0.864  in20  82.8%  mad 12.09  | err mean  +0.12  sd  -0.30  in20   +2.5  f +0.005
+  time per 768x768 image (Python/OpenCV, this PC): A 30 ms, B 35 ms
+ kappa 4.0, 1300 strands
+  truth          n=   1105  mean   +0.04  sd  15.66  R 0.861  f +0.861  in20  81.4%  mad 12.29
+  A_tensor       n=  59536  mean   +0.26  sd  17.72  R 0.826  f +0.826  in20  83.3%  mad 13.06  | err mean  +0.22  sd  +2.06  in20   +1.9  f -0.035
+  A_tensor_coh   n=  46590  mean   +0.19  sd  14.42  R 0.881  f +0.881  in20  87.2%  mad 10.93  | err mean  +0.15  sd  -1.24  in20   +5.8  f +0.020
+  B_seg_count    n=   1008  mean   -0.17  sd  14.46  R 0.880  f +0.880  in20  83.1%  mad 11.19  | err mean  -0.21  sd  -1.20  in20   +1.7  f +0.019
+  B_seg_len      n=   1008  mean   -0.29  sd  14.05  R 0.887  f +0.887  in20  84.3%  mad 10.91  | err mean  -0.33  sd  -1.61  in20   +2.8  f +0.025
+  B_merged       n=   1149  mean   +0.21  sd  15.15  R 0.870  f +0.870  in20  81.8%  mad 11.73  | err mean  +0.17  sd  -0.51  in20   +0.4  f +0.008
+  time per 768x768 image (Python/OpenCV, this PC): A 30 ms, B 33 ms
+exit 0
