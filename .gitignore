@@ -38,10 +38,6 @@ tools/lab/out/
 *.tiff
 *.bmp
 *.csv
-!FlakeScanner/Assets.xcassets/**/*.png
-!Tests/FlakeScannerTests/Fixtures/**
-!tools/lab/fixtures/**
-!docs/figures/*.png
 # Folders copied from the phone (Files app) and exported zips. Anchored at the root where a source folder has the
 # same name (FlakeScanner/Runs/, FlakeScanner/Diagnostics/).
 *.zip
@@ -61,3 +57,11 @@ diag_*/
 *.HEIC
 *.dng
 *.DNG
+
+# Whitelisted places, last so that they win over every rule above (including run_*/ and the picture rules):
+# the app icon, synthetic test fixtures (unit tests, the lab, the app's self-test) and documentation figures.
+!FlakeScanner/Assets.xcassets/**/*.png
+!FlakeScanner/Diagnostics/Fixtures/**
+!Tests/FlakeScannerTests/Fixtures/**
+!tools/lab/fixtures/**
+!docs/figures/*.png

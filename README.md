@@ -8,7 +8,7 @@
 - You choose how many **shots per second** are analyzed. Accuracy comes first: if the phone cannot keep up, it analyzes fewer shots and shows the rate it achieved.
 - The app finds the **machine direction** from the mat's movement and measures the angle of every flake edge to it: mean angle, spread, alignment, orientation factor, percent within ±10/20/30°, histogram and rose plot, trends over time, with confidence intervals.
 - **Quality checks** (exposure, focus, motion blur, lighting flicker, level) mark frames that would bias the result and leave them out, with the reason.
-- **Runs** are saved as CSV and JSON (plus optional frame pictures) that open in Excel, and are visible in the Files app.
+- **Runs** are saved as CSV and JSON (plus optional frame pictures) that open in Excel, and are visible in the Files app. Leave a run's folder alone while it is recording: if it is moved or deleted, the run stops.
 - A **second iPhone** with the app controls the scanner over a direct phone-to-phone Wi-Fi link, like Phone LiDAR's remote: pair with a code, see the live picture, draw the region, start and stop, change settings, read the statistics, copy runs.
 
 ## Building and installing

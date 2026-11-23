@@ -140,10 +140,13 @@ Full matrix: docs/implementation-plan.md §2. Every plan task names its assignme
 - Remote link (as Phone LiDAR): network code only in `Remote/`; values from the other phone are untrusted (check sizes,
   ROI bounds, parameter ranges, frame limits before reading; no traps on peer input); no file sends during a run.
 - Files: CSV through `CSV.make`, numbers via `String(format:)` (never localized), JSON via the shared pretty encoder,
-  metadata written `.atomic`. File names are constants (`Run.json`, `Frames.csv`, `Samples.csv`,
-  `FrameHistograms.csv`, `Histogram.csv`, `Summary.json`, `Summary.csv`, `Frames/`, `TargetReport.json`,
-  `TargetFlakes.csv`, `Snapshot.json`); folders are `Runs/run_<yyyy-MM-dd_HHmmss>`, `Snapshots/snapshot_<…>` and
-  `Diagnostics/diag_<…>` in Documents (design §7.2). Document every new file in design §7 and the user guide.
+  metadata written `.atomic`. File and folder names are constants, and design §7.2 is the authority for the full list:
+  run files (`Run.json`, `Frames.csv`, `Samples.csv`, `FrameHistograms.csv`, `Histogram.csv`, `Summary.json`,
+  `Summary.csv`, `TargetReport.json`, `TargetFlakes.csv`, the `.running` marker, `Frames/` with `f000123_roi.png`,
+  `f000123_full.heic`, `f000123_overlay.png`, `s000123_*.png`), snapshots (`Snapshot.json`, `roi.png`, `overlay.png`,
+  `full.heic`) and diagnostics (`CameraReport.json`, `burst_000.png` …, `Frames.json`, `Flicker.json`, `SelfTest.json`);
+  folders `Runs/run_<yyyy-MM-dd_HHmmss>`, `Snapshots/snapshot_<…>`, `Diagnostics/diag_<…>` in Documents. Document every
+  new file in design §7 and the user guide.
 - Errors: user-facing `LocalizedError`; no `try?` on paths that read or write measurement data; never delete captured
   data on failure.
 - Accelerate (vImage, vDSP, vForce) for convolution, FFT and reductions; plain Swift with unsafe buffers for region
