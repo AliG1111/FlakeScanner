@@ -42,7 +42,7 @@ OpenCV's LSD stands in for the app's own line-support-region detector (design §
 
 ## Experiments
 
-E1 bias vs mean direction · E2 spread vs concentration · E3 motion blur · E4 flicker banding: a control, short-period (PWM) and mains-period bands, both sensor orientations, with and without normalization · E5 one-sided light (shadows) · E6 strand aspect ratio · E7 mat density (occlusion) · E8 rotation bias: the same strands rotated, 3× images · E9 collinear merging vs density · E10 flake width set wrong · E11 flake-width estimate from paired edges · E12 ROI border rule (geometry only).
+E1 bias vs mean direction · E2 spread vs concentration · E3 motion blur · E4 flicker banding: a control, short-period (40 px) and mid-period (300 px) PWM bands and mains-period bands, both sensor orientations, with and without normalization · E5 one-sided light (shadows) · E6 strand aspect ratio · E7 mat density (occlusion) · E8 rotation bias: the same strands rotated, 3× images · E9 collinear merging vs density · E10 flake width set wrong · E11 flake-width estimate from paired edges · E12 ROI border rule (geometry only).
 
 Results of record: [`results-2026-11-23.txt`](results-2026-11-23.txt) (and `.json`). Summary and conclusions: [design §6.13](../../docs/design.md#613-lab-validation-synthetic-mats).
 

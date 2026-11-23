@@ -7,8 +7,9 @@ region of interest (ROI). Methods: *Flake edges* (LSD-style straight edges with 
 orientation* (structure tensor). MD is detected from the mat's movement. A second iPhone controls the scanner over
 direct phone-to-phone Wi-Fi (Phone LiDAR's remote link, plus a live preview and ROI drawing on the remote).
 
-State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`); the app skeleton and CI (P0.3, P0.4) are
-written on the branch `p0-skeleton` and not yet compiled; the GitHub repository (P0.2) is being created by the owner.
+State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–2 fixed, cycle 3 next); the GitHub
+repository is `AliG1111/FlakeScanner` (P0.2 done); the app skeleton and CI (P0.3, P0.4) are in PR #1 from `p0-skeleton`
+(CI green, change review clean), waiting for the owner's merge.
 Next steps in docs/implementation-plan.md §6.
 
 ## Hard constraints
@@ -41,7 +42,7 @@ FlakeScanner/Scan/           ScanView + ScanModel, ROIEditor, CameraPreview, Ove
 FlakeScanner/Runs/           RunStore, RunFormats, RunRecorder, RunRecovery
 FlakeScanner/Library/        Runs list, run screen, charts, frame browser
 FlakeScanner/Remote/         Remote link ported from Phone LiDAR + preview/settings extensions
-FlakeScanner/Diagnostics/    Camera report, sample bursts, flicker index and readout test, self-test, zip export
+FlakeScanner/Diagnostics/    Camera report, sample bursts, light check and readout-time fit, self-test, zip export
 FlakeScanner/Target/         Printed test target: layout, marker detection and homography, matching, report
 FlakeScanner/Storage/        Formatting: Units, CSV, Num (P0.3); TextFileWriter, SpeedText, JSON coders copied from
                              Phone LiDAR when first needed (design §3.6)
@@ -59,9 +60,11 @@ README.md                    User guide (build, install, mount, use)
   and by hand. Jobs: `unsigned-ipa` (artifact `FlakeScanner-unsigned-ipa-<run>`), `unit-tests` (scheme
   `FlakeScannerTests`, newest iPhone simulator), optional `testflight`. Build number = run number. The test target
   compiles the pure files listed in `project.yml`; add a file there when it gets tests.
-- `gh` works through the REST API only. The repository does not exist yet (Q-08); once it does, use
-  `gh workflow run "Build iOS app" -R <owner>/<repo> --ref <branch>`, `gh run list … --branch <branch> -L 3`,
-  `gh run watch <id> … --exit-status`, `gh run view <id> … --log-failed`, and write the real name here.
+- `gh` works through the REST API only (`gh api repos/AliG1111/FlakeScanner/...`; `gh pr create` uses GraphQL, so open
+  PRs with `gh api repos/AliG1111/FlakeScanner/pulls -f title=… -f head=<branch> -f base=main -F body=@<file>`). CI:
+  `gh workflow run "Build iOS app" -R AliG1111/FlakeScanner --ref <branch>`, `gh run list -R AliG1111/FlakeScanner
+  --branch <branch> -L 3`, `gh run watch <id> -R AliG1111/FlakeScanner --exit-status`, `gh run view <id> -R
+  AliG1111/FlakeScanner --log-failed`.
 - Pushes that change only Markdown files (`**.md`) start no build (`paths-ignore`, as in Phone LiDAR); docs-only
   changes need none.
 - Lab: `pip install -r tools/lab/requirements.txt`, then `python3 -I tools/lab/flake_lab.py [--quick] [--only E9]`.
@@ -138,8 +141,9 @@ Full matrix: docs/implementation-plan.md §2. Every plan task names its assignme
   ROI bounds, parameter ranges, frame limits before reading; no traps on peer input); no file sends during a run.
 - Files: CSV through `CSV.make`, numbers via `String(format:)` (never localized), JSON via the shared pretty encoder,
   metadata written `.atomic`. File names are constants (`Run.json`, `Frames.csv`, `Samples.csv`,
-  `FrameHistograms.csv`, `Histogram.csv`, `Summary.json`, `Summary.csv`, `Frames/`); run folders are
-  `run_<yyyy-MM-dd_HHmmss>`. Document every new file in design §7 and the user guide.
+  `FrameHistograms.csv`, `Histogram.csv`, `Summary.json`, `Summary.csv`, `Frames/`, `TargetReport.json`,
+  `TargetFlakes.csv`, `Snapshot.json`); folders are `Runs/run_<yyyy-MM-dd_HHmmss>`, `Snapshots/snapshot_<…>` and
+  `Diagnostics/diag_<…>` in Documents (design §7.2). Document every new file in design §7 and the user guide.
 - Errors: user-facing `LocalizedError`; no `try?` on paths that read or write measurement data; never delete captured
   data on failure.
 - Accelerate (vImage, vDSP, vForce) for convolution, FFT and reductions; plain Swift with unsafe buffers for region
@@ -159,5 +163,6 @@ that did the work (for example `Claude Sonnet 5.5 <noreply@anthropic.com>`) and 
 - docs/reviews/ — review records. docs/validation/ — on-device test records (from P8).
 - README.md — user guide; update for every user-visible change.
 - Phone LiDAR reference: `AliG1111/PhoneLidar` at `1ac68a7` is the port source for `Remote/`, `Storage/Formatting.swift`,
-  `App/KeepScreenOn.swift`, `App/CameraAccess.swift`, the CI workflow and `project.yml` patterns; its design §6.15
-  specifies the remote protocol.
+  `Line/LineRecording.swift` (`SpeedText`, `TextFileWriter` only), `Storage/ScanStore.swift` (JSON coder extensions
+  only), `App/KeepScreenOn.swift`, `App/CameraAccess.swift`, the CI workflow and `project.yml` patterns (exact list:
+  design §3.7); its design §6.15 specifies the remote protocol.

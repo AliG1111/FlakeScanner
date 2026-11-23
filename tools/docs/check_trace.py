@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Check that requirements and implementation plan agree (traceability).
 
-Every FR-/NFR- ID in docs/requirements.md must be cited by at least one task line in
-docs/implementation-plan.md section 6, and its phase column must equal the set of phases
-of the tasks that cite it ("All" is accepted as is). IDs cited in the plan must exist.
+Every FR-/NFR- ID in docs/requirements.md must be defined once and cited by at least one
+task line in docs/implementation-plan.md section 6, and its phase column must equal the set
+of phases of the tasks that cite it ("All" is accepted as is). IDs cited in the plan must
+exist. Every task line ("- [ ]" or "- [x]") cites at least one ID or is marked [process].
 
 Usage:
-  python3 -I tools/docs/check_trace.py         # report; exit 1 on any mismatch
-  python3 -I tools/docs/check_trace.py --fix   # rewrite the phase column from the plan
+  python3 -I tools/docs/check_trace.py         # report; exit 1 on any problem
+  python3 -I tools/docs/check_trace.py --fix   # rewrite the phase column from the plan;
+                                               # exit 1 if other problems remain
 """
 
 from __future__ import annotations
@@ -21,7 +23,10 @@ ROOT = Path(__file__).resolve().parents[2]
 REQ = ROOT / "docs" / "requirements.md"
 PLAN = ROOT / "docs" / "implementation-plan.md"
 
-ROW = re.compile(r"^\| (N?FR-[A-Z]+-\d\d) \|")
+# Requirement rows, tolerating bold and missing spaces: "| FR-APP-07 |", "| **FR-APP-07** |", "|FR-CAP-11|"
+ROW = re.compile(r"^\|\s*\**\s*(N?FR-[A-Z]+-\d{2,3})\s*\**\s*\|")
+TASK = re.compile(r"^- \[[ xX]\] ")
+PROCESS = "[process]"
 # FR-RMT-01, FR-RMT-01…12, NFR-SEC-01/03/06
 CITE = re.compile(r"\b(N?FR-[A-Z]+)-(\d\d)((?:/\d\d)*)(?:…(\d\d))?\b")
 PHASE_HEAD = re.compile(r"^### (P\d+)\b")
@@ -54,21 +59,26 @@ def cited_ids(text: str) -> list[str]:
     return ids
 
 
-def plan_citations() -> dict[str, set[str]]:
+def plan_citations() -> tuple[dict[str, set[str]], list[str]]:
+    """Phases citing each ID, and problems with task lines that cite nothing."""
     lines = PLAN.read_text(encoding="utf-8").splitlines()
     start = next(i for i, l in enumerate(lines) if l.startswith("## 6."))
     end = next(i for i, l in enumerate(lines) if l.startswith("## 7."))
     phase = None
     cites: dict[str, set[str]] = {}
-    for line in lines[start:end]:
+    problems: list[str] = []
+    for n, line in enumerate(lines[start:end], start=start + 1):
         m = PHASE_HEAD.match(line)
         if m:
             phase = m.group(1)
             continue
         if phase and line.startswith("- "):
-            for rid in cited_ids(line):
+            ids = cited_ids(line)
+            for rid in ids:
                 cites.setdefault(rid, set()).add(phase)
-    return cites
+            if TASK.match(line) and not ids and PROCESS not in line:
+                problems.append(f"plan line {n}: task cites no requirement and is not marked {PROCESS}: {line[:70]}")
+    return cites, problems
 
 
 def main(argv=None) -> int:
@@ -76,16 +86,19 @@ def main(argv=None) -> int:
     ap.add_argument("--fix", action="store_true", help="rewrite the phase column from the plan")
     args = ap.parse_args(argv)
 
-    cites = plan_citations()
+    cites, problems = plan_citations()
     req_lines = REQ.read_text(encoding="utf-8").splitlines(keepends=True)
-    problems = []
-    known = set()
+    fixable = 0
+    known: dict[str, int] = {}
     for i, line in enumerate(req_lines):
         m = ROW.match(line)
         if not m:
             continue
         rid = m.group(1)
-        known.add(rid)
+        if rid in known:
+            problems.append(f"{rid}: defined twice (requirements lines {known[rid]} and {i + 1})")
+            continue
+        known[rid] = i + 1
         cells = line.rstrip("\n").strip().strip("|").split("|")
         cell = cells[-2]
         stated = parse_phase_cell(cell)
@@ -98,10 +111,11 @@ def main(argv=None) -> int:
         if stated != derived:
             want = ", ".join(sorted(derived, key=phase_key))
             problems.append(f"{rid}: requirements say '{cell.strip()}', plan tasks give '{want}'")
+            fixable += 1
             if args.fix:
                 cells[-2] = f" {want} "
                 req_lines[i] = "|" + "|".join(cells) + "|\n"
-    for rid in sorted(set(cites) - known):
+    for rid in sorted(set(cites) - set(known)):
         problems.append(f"{rid}: cited in the plan but not defined in the requirements")
 
     if args.fix:
@@ -109,7 +123,8 @@ def main(argv=None) -> int:
     for p in problems:
         print(p)
     print(f"{len(known)} requirements, {len(problems)} problem(s)" + (" (phase cells rewritten)" if args.fix else ""))
-    return 1 if problems and not args.fix else 0
+    remaining = len(problems) - fixable if args.fix else len(problems)
+    return 1 if remaining else 0
 
 
 if __name__ == "__main__":

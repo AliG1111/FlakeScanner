@@ -41,11 +41,18 @@ tools/lab/out/
 !FlakeScanner/Assets.xcassets/**/*.png
 !Tests/FlakeScannerTests/Fixtures/**
 !tools/lab/fixtures/**
-!docs/**/*.png
-Reference/
-PlantMedia/
-Runs/
+!docs/figures/*.png
+# Folders copied from the phone (Files app) and exported zips. Anchored at the root where a source folder has the
+# same name (FlakeScanner/Runs/, FlakeScanner/Diagnostics/).
+*.zip
+/Reference/
+/PlantMedia/
+/Runs/
+/Snapshots/
+/Diagnostics/
 run_*/
+snapshot_*/
+diag_*/
 *.mov
 *.MOV
 *.mp4

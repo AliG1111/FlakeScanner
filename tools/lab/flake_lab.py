@@ -544,7 +544,7 @@ def experiment_e3(images, results):
 def experiment_e4(images, results):
     print("\nE4  Flicker banding through the rolling shutter (mu 10, kappa 4; same strands and noise in every row)")
     print("    rows across MD = default mount (travel along the readout); rows along MD = travel across it.")
-    print("    40 px ~ kHz PWM dimming; 1100-2700 px ~ 100/120 Hz mains flicker at 8-16 ms readout.")
+    print("    40 px ~ kHz PWM dimming; 300 px ~ 0.5-1 kHz PWM; 1100-2700 px ~ 100/120 Hz mains flicker at 8-16 ms readout.")
     conds = (
         ("control, no banding", {}, None),
         ("PWM 40 px 10 %, rows along MD", dict(banding=0.10, band_period=40.0, band_axis="y"), None),
@@ -555,6 +555,10 @@ def experiment_e4(images, results):
         ("  same + smooth normalization 129", dict(banding=0.30, band_period=1100.0, band_axis="x"), ("smooth", 129)),
         ("mains 2700 px 30 %, rows across MD", dict(banding=0.30, band_period=2700.0, band_axis="x"), None),
         ("mains 1100 px 30 %, rows along MD", dict(banding=0.30, band_period=1100.0, band_axis="y"), None),
+        ("PWM 300 px 10 %, rows across MD", dict(banding=0.10, band_period=300.0, band_axis="x"), None),
+        ("  same + line normalization", dict(banding=0.10, band_period=300.0, band_axis="x"), "line"),
+        ("PWM 300 px 10 %, rows along MD", dict(banding=0.10, band_period=300.0, band_axis="y"), None),
+        ("  same + line normalization", dict(banding=0.10, band_period=300.0, band_axis="y"), "line"),
     )
     for i, (name, kw, norm) in enumerate(conds):
         r = run_condition(400, images, normalize=norm, mu=10.0, kappa=4.0, **kw)
