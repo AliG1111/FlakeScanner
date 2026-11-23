@@ -15,7 +15,7 @@ python3 -I tools/lab/flake_lab.py --save-example mat.png
 
 Everything is seeded and deterministic. Errors are method minus truth, ± one standard error from the image-to-image scatter.
 
-Results of record (8 images per condition, about 18 minutes; E4 alone about 8, E13 about 1.5):
+Results of record (8 images per condition, about 21 minutes; E4 alone about 9.5, E13 about 1.5):
 
 ```
 python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json | tee tools/lab/results-<date>.txt
@@ -42,7 +42,7 @@ OpenCV's LSD stands in for the app's own line-support-region detector (design §
 
 ## Experiments
 
-E1 bias vs mean direction · E2 spread vs concentration · E3 motion blur · E4 flicker banding: a control, short-period (40 px) and mid-period (300 px) PWM bands and mains-period bands, both sensor orientations, with and without normalization; then deep PWM bands (`pwm_gain`: a light on for a duty fraction of each period, seen through the exposure as trapezoidal bands, 135–1,000 rows) evaluated raw, row-corrected and with the proposed rules (`run_banding_condition`), with the banding detectors of `banding_metrics` printed for every condition · E5 one-sided light (shadows) · E6 strand aspect ratio · E7 mat density (occlusion) · E8 rotation bias: the same strands rotated, 3× images · E9 collinear merging vs density · E10 flake width set wrong · E11 flake-width estimate from paired edges · E12 ROI border rule (geometry only) · E13 light check, readout time and brightness drift (design §6.16) simulated at the row level: 2,160-row rolling-shutter frames under sine, rectified, phosphor/capacitor-smoothed, LED off-time and half-wave flicker, on still, shaking and moving surfaces; flicker index and frequency, readout time by the phase slope (and the earlier free-period fit for comparison), exposure and mains-offset effects, and the brightness drift at 1/30 s against 60.02 Hz mains.
+E1 bias vs mean direction · E2 spread vs concentration · E3 motion blur · E4 flicker banding: a control, short-period (40 px) and mid-period (300 px) PWM bands and mains-period bands, both sensor orientations, with and without normalization; then deep PWM bands (`pwm_gain`: a light on for a duty fraction of each period, seen through the exposure as trapezoidal bands, 135–1,000 rows) evaluated raw, row-corrected and with the proposed rules (`run_banding_condition`), and the first part's sinusoidal and mains bands under the same rules, with the banding detectors of `banding_metrics` printed for every condition · E5 one-sided light (shadows) · E6 strand aspect ratio · E7 mat density (occlusion) · E8 rotation bias: the same strands rotated, 3× images · E9 collinear merging vs density · E10 flake width set wrong · E11 flake-width estimate from paired edges · E12 ROI border rule (geometry only) · E13 light check, readout time and brightness drift (design §6.16) simulated at the row level: 2,160-row rolling-shutter frames under sine, rectified, phosphor/capacitor-smoothed, LED off-time and half-wave flicker, on still, shaking and moving surfaces; flicker index and frequency, readout time by the phase slope (and the earlier free-period fit for comparison), exposure and mains-offset effects, and the brightness drift at 1/30 s against 60.02 Hz mains.
 
 `--images` sets the bursts per case in E13 too (2 with `--quick`, otherwise 4).
 

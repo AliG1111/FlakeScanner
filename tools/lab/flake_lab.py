@@ -814,6 +814,25 @@ E4_PWM = (
     (1000.0, 0.8, 64.0, 0.0, "x"), (1000.0, 0.9, 128.0, 0.0, "xy"),
 )
 
+# The first part's sinusoidal bands under the same rules: (name, render arguments, mounts)
+E4_RULE_SINE = (
+    ("sine 40 rows 10 %", dict(banding=0.10, band_period=40.0), "xy"),
+    ("sine 300 rows 10 %", dict(banding=0.10, band_period=300.0), "xy"),
+    ("mains 1100 rows 30 %", dict(banding=0.30, band_period=1100.0), "xy"),
+    ("mains 2700 rows 30 %", dict(banding=0.30, band_period=2700.0), "x"),
+)
+
+
+def _print_rule_condition(name, r, ctrl_raw_err, images):
+    """One run_banding_condition result as raw / line / rule changes from the control, plus the detectors."""
+    print(f" {name}")
+    for v in ("raw", "line", "rule"):
+        extra = (f" (dark rows: excluded {r['_rule']['excluded']}/{images}; grad_frac flagged"
+                 f" {r['_rule']['flagged']})" if v == "rule" else "")
+        print(f"    {v:<4}" + "  ".join(f"  {m} {_paired_text(r['_err'][v][m], ctrl_raw_err[m])}"
+                                      for m in BANDING_METHODS) + extra)
+    print(_detect_text(r["_probe"]))
+
 
 def experiment_e4_pwm(images, results):
     print("\nE4  (cont.) Deep PWM bands: a light on for `duty` of each period (off level 0 unless given), each row"
@@ -844,14 +863,14 @@ def experiment_e4_pwm(images, results):
             name = (f"PWM {period:.0f} rows, duty {duty}, ramp {ramp:.0f}" + (f", off {off}" if off else "")
                     + f", mount {ax} (gain {g.min():.2f}-{g.max():.2f})")
             results[f"E4_pwm_{period:.0f}_{duty}_{ramp:.0f}_{off}_{ax}"] = dict(r, _label=name)
-            c = ctrl[ax]["_err"]["raw"]
-            print(f" {name}")
-            for v in ("raw", "line", "rule"):
-                extra = (f" (dark rows: excluded {r['_rule']['excluded']}/{images}; grad_frac flagged"
-                         f" {r['_rule']['flagged']})" if v == "rule" else "")
-                print(f"    {v:<4}" + "  ".join(f"  {m} {_paired_text(r['_err'][v][m], c[m])}" for m in BANDING_METHODS)
-                      + extra)
-            print(_detect_text(r["_probe"]))
+            _print_rule_condition(name, r, ctrl[ax]["_err"]["raw"], images)
+    print(" The first part's sinusoidal and mains bands under the same rules (same mats and seed):")
+    for label, kw, mounts in E4_RULE_SINE:
+        for ax in mounts:
+            r = run_banding_condition(400, images, mu=10.0, kappa=4.0, band_axis=ax, **kw)
+            name = f"{label}, mount {ax}"
+            results[f"E4_rule_{kw['band_period']:.0f}_{kw['banding']}_{ax}"] = dict(r, _label=name)
+            _print_rule_condition(name, r, ctrl[ax]["_err"]["raw"], images)
 
 
 def experiment_e5(images, results):

@@ -7,7 +7,7 @@ region of interest (ROI). Methods: *Flake edges* (LSD-style straight edges with 
 orientation* (structure tensor). MD is detected from the mat's movement. A second iPhone controls the scanner over
 direct phone-to-phone Wi-Fi (Phone LiDAR's remote link, plus a live preview and ROI drawing on the remote).
 
-State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–2 fixed, cycle 3 next); the GitHub
+State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–3 fixed, cycle 4 next); the GitHub
 repository is `AliG1111/FlakeScanner`; the app skeleton and CI (P0.3–P0.6) are merged on `main` (PR #1, build 7); next is
 the device probe build (P0.7).
 Next steps in docs/implementation-plan.md §6.
@@ -69,7 +69,7 @@ README.md                    User guide (build, install, mount, use)
   changes need none.
 - Lab: `pip install -r tools/lab/requirements.txt`, then `python3 -I tools/lab/flake_lab.py [--quick] [--only E9]`.
   Results of record: `python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json | tee
-  tools/lab/results-<date>.txt` (about 11 minutes).
+  tools/lab/results-<date>.txt` (about 21 minutes).
 - Traceability: `python3 -I tools/docs/check_trace.py` after any change to requirement IDs or plan task lines; it must
   report 0 problems (`--fix` rewrites the requirements' phase column from the plan).
 - Git proxy: on HTTP 429 wait 5 s and retry once.
