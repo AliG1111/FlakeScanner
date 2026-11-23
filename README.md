@@ -31,9 +31,9 @@ Each run has two jobs: `unsigned-ipa` (builds the app) and `unit-tests`. Both mu
 
 To get the app, open the finished run and scroll to **Artifacts**. Download `FlakeScanner-unsigned-ipa-<run>`. It is a zip with the `.ipa` inside. Unzip it.
 
-The build number of the app is the run number. Run 12 gives `FlakeScanner-unsigned-ipa-12` and build 12. Artifacts are kept for 30 days.
+The build number of the app is the run number. Run 12 gives `FlakeScanner-unsigned-ipa-12` and build 12. The `.ipa` artifact is kept for 30 days.
 
-If a job fails, the run's summary page lists the compiler errors (**Build errors**) or the failed tests. Two more artifacts help: `build-log-<run>` (the full logs of the app job, kept 14 days) and `unit-test-results-<run>` (only when the tests fail: the test results and logs, kept 14 days).
+If a job fails, the run's summary page lists the compiler errors (**Build errors**) or the failed tests. Two more artifacts help: `build-log-<run>` (the full logs of the app job, kept 14 days) and `unit-test-results-<run>` (only when the `unit-tests` job fails: the test results and logs, kept 14 days).
 
 ### 3. Install
 
