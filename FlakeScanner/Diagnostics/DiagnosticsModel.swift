@@ -182,7 +182,7 @@ final class DiagnosticsModel: ObservableObject {
     // MARK: Actions
 
     func cameraReport() {
-        run("Reading the cameras") { [self] in
+        run("Reading the cameras") {
             let report = CameraReportBuilder.build()
             let folder = try DiagnosticsStore.newFolder(kind: "camera-report")
             try DiagnosticsStore.write(report.text(), name: "camera-report.txt", in: folder)
