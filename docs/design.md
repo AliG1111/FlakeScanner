@@ -98,7 +98,7 @@ Pure files (marked **pure**) use Foundation and Accelerate only, have no device 
 | `FlakeScannerApp.swift` | App entry; creates `RunStore`, `RemoteLink`, `AppSettings`; scene-phase handling. |
 | `HomeView.swift` | Scan, Connect to the other phone, Runs, Settings / About (version, build and a link to the user guide). |
 | `AppInfo.swift` | **pure** version and build text for About from the bundle's info dictionary (P0.3). |
-| `AppSettings.swift` | **pure** `Codable` settings (`ScanSettings`: ROI, rate, method and parameters, exposure, focus, torch, MD mode, target, limits, frame saving) with defaults, validation (`clamped()`), persistence as JSON in `UserDefaults` (`settings.v1`). The same type is the remote's settings payload. |
+| `AppSettings.swift` | **pure** `Codable` settings (`ScanSettings`: ROI, rate, method and parameters, exposure, focus, torch, MD mode, target, limits, frame saving, the highest expected speed for the conditions forecast) with defaults, validation (`clamped()`), persistence as JSON in `UserDefaults` (`settings.v1`). The same type is the remote's settings payload. |
 | `KeepScreenOn.swift`, `CameraAccess.swift` | Ported from Phone LiDAR (`ScreenAwake` holders, permission flow). |
 
 ### 3.2 Capture (`Capture/`)
