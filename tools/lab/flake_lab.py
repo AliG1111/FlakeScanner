@@ -643,13 +643,17 @@ BANDING_METHODS = ("A_tensor", "B_merged")
 BAND_DARK_MIN = 0.15     # exclude a shot (both methods) whose row_min is below this (near-dark rows)
 BAND_GRAD_MIN = 0.03     # cycle-3 flag on grad_frac; printed for comparison only (it grows as the ROI narrows)
 BAND_COMMON_MIN = 0.01   # banding that matters when band_common >= this
-BAND_R_MIN = 0.76        # A_tensor is corrected row by row only when the median R of A_tensor on the row-corrected
-                         # copy is >= this (kappa 4 layers read 0.79-0.85, kappa 3 0.76-0.78, kappa 2.5 0.73-0.75) ...
-BAND_PSI_ROWS = 45.0     # ... and the median angle (deg) between the strands and the sensor rows is >= this (review
-                         # cycle 5, E4 regime boundary: dividing row by row costs up to -0.46 deg on the mean at psi
-                         # 30-40 and -0.34 at psi 45 with kappa 2.5; 0.76 keeps that layer out of rows on a median
-                         # of 5 shots)
-BAND_SMOOTH_FLAKE = 0.7  # otherwise A_tensor's row means are smoothed over this many flake widths ...
+BAND_WIDE_W = 30.0       # wide strands: set flake width (px) from which the along window (>= 21 rows) leaves too
+                         # much of a short band (E4 wide strands: along is off by +0.3 to +0.8 deg on the mean, up to
+                         # +0.6 on the spread, under sine 40 and PWM 135 at psi 20-80; 24 px, 17 rows, passes) ...
+BAND_PSI_ROWS = 50.0     # ... and A_tensor is corrected row by row when, in addition, the run's median angle (deg)
+                         # between the strands and the sensor rows is >= this (rows passes every wide layer at psi
+                         # >= 50; below, it fails on most layers, by up to -0.69 deg on the mean at psi 29, +0.52 at
+                         # psi 11 and +0.7 on the spread at psi 3); every other run uses along
+BAND_ALONG_COMMON_MAX = 0.04  # along excludes A_tensor on a wide-strand shot whose band_common is >= this (weak
+                         # bands, about 0.014, and sine 40 at about 0.035 pass along, worst +0.23 deg; sine 40 and
+                         # PWM 135 at 10 %, 0.05-0.2 here, fail it at psi 20-80)
+BAND_SMOOTH_FLAKE = 0.7  # along: A_tensor's row means are smoothed over this many flake widths ...
 BAND_SMOOTH_MAX = 25     # ... but over at most this many rows (band periods do not scale with the strands) ...
 BAND_SMOOTH_ROW_MIN = 0.5  # ... and A_tensor is excluded when row_min is below this (smoothing cannot follow deep
                            # band edges)
@@ -674,13 +678,19 @@ def band_window(wset):
 def direction_regime(psi, r_dir, wset):
     """A_tensor's correction regime for a run from the strands' direction and the set flake width wset (px): "rows"
     (divide every row by its mean), "along" (divide by the smoothed row means) or "none" (A_tensor excluded on
-    every flagged shot)."""
-    return "rows" if r_dir >= BAND_R_MIN and psi >= BAND_PSI_ROWS else "along"
+    every flagged shot). The rule (review cycle 5, E4) uses psi and wset only: rows for wide strands (wset >=
+    BAND_WIDE_W) at psi >= BAND_PSI_ROWS, otherwise along (which, for wide strands, excludes A_tensor on shots
+    with strong bands, see banding_rule). R needs no threshold: low-R layers (kappa 1, random) pass along, and
+    the wide random layers, which 5-shot medians put on either side of psi 50, pass rows wherever they pass along. No layer needs "none" for a whole run: where along and rows
+    both fail, sub-flag shots of the weak bands, which stay raw, make "none" fail too."""
+    return "rows" if wset >= BAND_WIDE_W and psi >= BAND_PSI_ROWS else "along"
 
 
 def _regime_rule_text():
-    """direction_regime in words, for the headers."""
-    return f"rows when median psi >= {BAND_PSI_ROWS:.0f} and median R >= {BAND_R_MIN}, otherwise along"
+    """direction_regime and along's exclusions in words, for the headers."""
+    return (f"rows when w >= {BAND_WIDE_W:.0f} px and median psi >= {BAND_PSI_ROWS:.0f}, otherwise along (A excluded"
+            f" when row_min < {BAND_SMOOTH_ROW_MIN}, or when w >= {BAND_WIDE_W:.0f} px and band_common >="
+            f" {BAND_ALONG_COMMON_MAX})")
 
 
 def _regime_shots(dirs, mets, dark_min=BAND_DARK_MIN):
@@ -722,7 +732,9 @@ def banding_rule(met, regime, wset, dark_min=BAND_DARK_MIN, common_min=BAND_COMM
     (excluded), "none", "rows" (every row divided by its mean) or an int W (row means smoothed over W rows); state
     is "dark", "clean" or "flagged". B_merged is excluded on every flagged shot: its error under bands depends on
     the strands' direction and width, and its paired noise cannot resolve a per-shot choice. Regime "none" excludes
-    A_tensor on every flagged shot too."""
+    A_tensor on every flagged shot too. Regime "along" excludes A_tensor when row_min < BAND_SMOOTH_ROW_MIN, and for
+    wide strands (wset >= BAND_WIDE_W) when band_common >= BAND_ALONG_COMMON_MAX: a window of 21 rows or more
+    leaves about half of a 40-row band, which a strong band turns into a bias."""
     if met["row_min"] < dark_min:
         return None, False, "dark"
     if met["band_common"] < common_min:
@@ -731,7 +743,9 @@ def banding_rule(met, regime, wset, dark_min=BAND_DARK_MIN, common_min=BAND_COMM
         return "rows", False, "flagged"
     if regime == "none":
         return None, False, "flagged"
-    return (band_window(wset) if met["row_min"] >= BAND_SMOOTH_ROW_MIN else None), False, "flagged"
+    if met["row_min"] < BAND_SMOOTH_ROW_MIN or (wset >= BAND_WIDE_W and met["band_common"] >= BAND_ALONG_COMMON_MAX):
+        return None, False, "flagged"
+    return band_window(wset), False, "flagged"
 
 
 # Rule variants of a condition: the condition's own regime and each regime forced
@@ -838,7 +852,8 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_
               raw; otherwise B_merged is excluded and A_tensor is corrected by the condition's regime
               (condition_regime: median psi and R of A_tensor on the "line" copy, and the flake width): "rows"
               divides every row by its mean, "along" divides by the row means smoothed over band_window rows (A
-              excluded when row_min < BAND_SMOOTH_ROW_MIN), "none" excludes A
+              excluded when row_min < BAND_SMOOTH_ROW_MIN, or for wide strands when band_common >=
+              BAND_ALONG_COMMON_MAX), "none" excludes A
       rule_rows / rule_along / rule_none  the same with the regime forced (the app decides the regime once per
               run from its first flagged shots, so a layer near a boundary may get another one)
     methods: the methods evaluated; ("A_tensor",) skips B_merged, whose rule result does not depend on the regime.
@@ -875,8 +890,8 @@ def run_banding_layer(seed, images, mat, bands=(), weak=(), methods=BANDING_METH
     """A layer's control and band conditions on the same mats, each mat rendered once (render_mat's noiseless image
     and noise field; band_gain and add_noise then make every condition exactly as rendering it again would, so each
     result equals run_banding_condition's for the same seed). mat: render arguments without band arguments; bands:
-    ((label, band arguments), ...); weak: ((label, period rows), ...) sinusoidal bands of the amplitude
-    weak_amplitude finds for this layer. Returns {label: run_banding_condition result}, "control" first; a weak
+    ((label, band arguments), ...); weak: ((label, period rows[, median band_common]), ...) sinusoidal bands of the
+    amplitude weak_amplitude finds for this layer (target BAND_WEAK_TARGET unless given). Returns {label: run_banding_condition result}, "control" first; a weak
     band's result carries "_amp"."""
     rng = np.random.default_rng(seed)
     wset = float(mat.get("width", 24.0))
@@ -889,8 +904,8 @@ def run_banding_layer(seed, images, mat, bands=(), weak=(), methods=BANDING_METH
         mats.append((clean[0], field[0], truth))
     size = mats[0][0].shape[0]
     conds = [("control", {}, None)] + [(label, kw, None) for label, kw in bands]
-    for label, period in weak:
-        a = weak_amplitude(mats, axis, period, noise, blur)
+    for label, period, *target in weak:
+        a = weak_amplitude(mats, axis, period, noise, blur, *target)
         conds.append((label, dict(banding=a, band_period=period), a))
     out = {}
     for label, kw, amp in conds:
@@ -1125,11 +1140,14 @@ def _paired_means(errs, ctrl):
     return None if d.size == 0 else d.mean(axis=0)
 
 
-def _rule_ok(r, ctrl_raw_err, random_layer=False, lim=(0.25, 0.5, 2.0), variant="rule"):
+def _rule_ok(r, ctrl_raw_err, random_layer=False, lim=(0.25, 0.5, 2.0), variant="rule", methods=None):
     """The tolerance criterion: every method within lim (mean deg, spread deg, in20 points) of the control, or
     excluded. A random layer has no mean direction, so only its spread and in20 count. variant: "rule" or a forced
-    regime ("rule_rows", "rule_along", "rule_none"); the methods are those the condition evaluated."""
-    for m in r["_err"][variant]:
+    regime ("rule_rows", "rule_along", "rule_none"); methods: those checked (default: all the condition
+    evaluated)."""
+    for m in (methods or r["_err"][variant]):
+        if m not in r["_err"][variant]:
+            continue
         p = _paired_means(r["_err"][variant][m], ctrl_raw_err[m])
         if p is None:
             continue
@@ -1139,11 +1157,16 @@ def _rule_ok(r, ctrl_raw_err, random_layer=False, lim=(0.25, 0.5, 2.0), variant=
 
 
 def _verdict(r, ctrl_raw_err, random_layer=False):
-    """A condition's verdicts: "rows" / "along" / "none" (each regime forced), "rule" (the condition's regime),
-    "subsets" (the regimes the medians of 5-shot subsets pick, with their shares) and "pass" (the condition's regime
-    and every regime a subset can pick are within the tolerances or excluded)."""
-    ok = {g: _rule_ok(r, ctrl_raw_err, random_layer, variant="rule_" + g) for g in ("rows", "along", "none")}
-    ok["rule"] = _rule_ok(r, ctrl_raw_err, random_layer)
+    """A condition's verdicts on A_tensor, the method the regime acts on: "rows" / "along" / "none" (each regime
+    forced), "rule" (the condition's regime), "subsets" (the regimes the medians of 5-shot subsets pick, with their
+    shares) and "pass" (the condition's regime and every regime a subset can pick are within the tolerances or
+    excluded). "B": B_merged under the rule (None when not evaluated); B is excluded on every flagged shot whatever
+    the regime, so its result depends on the flag only."""
+    a = ("A_tensor",)
+    ok = {g: _rule_ok(r, ctrl_raw_err, random_layer, variant="rule_" + g, methods=a) for g in ("rows", "along", "none")}
+    ok["rule"] = _rule_ok(r, ctrl_raw_err, random_layer, methods=a)
+    ok["B"] = (_rule_ok(r, ctrl_raw_err, random_layer, methods=("B_merged",)) if "B_merged" in r["_err"]["rule"]
+               else None)
     if r["_rule"]["flagged"] == 0:
         ok["subsets"] = {r["_regime"]["regime"]: 1.0}   # the regime acts on flagged shots only
     else:
@@ -1156,7 +1179,8 @@ def _verdict_text(v):
     """rule verdict, the 5-shot subsets' regimes when more than one, and pass/FAIL."""
     sub = "" if len(v["subsets"]) == 1 else " subsets " + "/".join(
         f"{g} {100 * s:.0f}%" for g, s in v["subsets"].items())
-    return f"rule {'ok' if v['rule'] else 'FAIL'}{sub} | {'pass' if v['pass'] else 'FAIL'}"
+    b = "" if v.get("B") is None else f" | B {'ok' if v['B'] else 'FAIL'}"
+    return f"rule {'ok' if v['rule'] else 'FAIL'}{sub} | {'pass' if v['pass'] else 'FAIL'}{b}"
 
 
 def _chg_text(r, v, m, ctrl_raw_err):
@@ -1207,12 +1231,15 @@ def _tally_add(tally, layer, v):
     tally["cases"] += 1
     tally["rule_ok"] += int(v["rule"])
     tally["pass"] += int(v["pass"])
+    if v.get("B") is not None:
+        tally["b_cases"] += 1
+        tally["b_ok"] += int(v["B"])
     tally["layers"].setdefault(layer, True)
     tally["layers"][layer] &= v["pass"]
 
 
 def _new_tally():
-    return {"cases": 0, "rule_ok": 0, "pass": 0, "layers": {}, "fails": []}
+    return {"cases": 0, "rule_ok": 0, "pass": 0, "layers": {}, "fails": [], "b_cases": 0, "b_ok": 0}
 
 
 def _print_tally(title, tally, results, key):
@@ -1221,11 +1248,14 @@ def _print_tally(title, tally, results, key):
     nl = len(tally["layers"])
     npass = sum(tally["layers"].values())
     results[key] = {"cases": tally["cases"], "rule_ok": tally["rule_ok"], "pass": tally["pass"], "layers": nl,
-                    "layers_pass": npass, "fails": tally["fails"]}
-    print(f" Rule verdicts, {title}: {tally['rule_ok']}/{tally['cases']} cases within the tolerances (or excluded)"
-          f" under the condition's regime, {tally['pass']}/{tally['cases']} also under every regime a 5-shot median"
-          f" can pick; {npass}/{nl} layers pass with every band" + ("" if not tally["fails"] else
-                                                                   "; failing: " + "; ".join(tally["fails"])))
+                    "layers_pass": npass, "fails": tally["fails"], "b_cases": tally["b_cases"], "b_ok": tally["b_ok"]}
+    b = ("" if not tally["b_cases"] else f" B_merged (excluded on flagged shots, raw below the flag):"
+         f" {tally['b_ok']}/{tally['b_cases']} cases within the tolerances.")
+    print(f" Rule verdicts (A_tensor), {title}: {tally['rule_ok']}/{tally['cases']} cases within the tolerances (or"
+          f" excluded) under the condition's regime, {tally['pass']}/{tally['cases']} also under every regime a 5-shot"
+          f" median can pick; {npass}/{nl} layers pass with every band" + ("" if not tally["fails"] else
+                                                                          "; failing: " + "; ".join(tally["fails"]))
+          + "." + b)
 
 
 def _line_cost(r, variant="line"):
@@ -1332,6 +1362,8 @@ E4_DIR_BANDS = (
 # Weak bands just above the flag (review cycle 5): (label, period rows); the amplitude is scaled per layer
 # (weak_amplitude) so that the median band_common is about BAND_WEAK_TARGET
 E4_WEAK = (("weak sine 40", 40.0), ("weak sine 135", 135.0))
+# Wide strands also get a sine 40 band just below along's band_common limit (the largest band along still corrects)
+E4_WIDE_WEAK = E4_WEAK + (("sine 40 below limit", 40.0, 0.035),)
 # Wide strands (width px, strands): length 5 x width, count scaled so that coverage matches the 24 px mats
 E4_WIDE = ((36.0, 289), (48.0, 163))
 # Wide-strand map (mu, kappa, mount, with B_merged): psi about every 10 deg at kappa 4, kappa 2.5, a random layer
@@ -1346,8 +1378,9 @@ E4_CASE_HELP = (
     " changes; dark = shots excluded for dark rows;\n    flag = shots flagged by band_common; median psi and R; bc ="
     " band_common median [min]; weak bands show their amplitude. Verdicts: within\n    0.25 deg mean, 0.5 deg sd and"
     " 2 points in20 of the control, or excluded (random layer: sd and in20 only); subsets = the regimes medians\n    of"
-    " 5-shot subsets pick when more than one; pass = the rule's regime and every subset regime within the"
-    " tolerances.")
+    " 5-shot subsets pick when more than one; pass = A under the rule's regime and every subset regime within the"
+    " tolerances;\n    B = B_merged under the rule (excluded on flagged shots whatever the regime, so it depends on"
+    " the flag only).")
 
 
 def _roi_crop(img, band_axis, w):
@@ -1427,11 +1460,13 @@ def experiment_e4_dir(images, results, ctrl):
     print("\nE4  (cont.) Wide strands: length 5 x width, count scaled to the 24 px mats' coverage, mount x at mu 10-90"
           f" (psi 80 down to 0) with kappa 4,\n    mu 10 in mount y, kappa 2.5 at mu 30, 60, 90 and a random layer;"
           f" {n_wide} images per layer (twice the run's count). The along regime's window is\n    {BAND_SMOOTH_FLAKE}"
-          f" flake widths capped at {BAND_SMOOTH_MAX} rows. B_merged is evaluated on the first three layers per width"
+          f" flake widths capped at {BAND_SMOOTH_MAX} rows. A third tuned band, sine 40 rows at a median band_common"
+          f" of about 0.035, tests along just\n    below its limit ({BAND_ALONG_COMMON_MAX}). Rule:"
+          f" {_regime_rule_text()}.\n    B_merged is evaluated on the first three layers per width"
           " (raw B shows why it is excluded on\n    flagged shots). Same bands and layout as above.\n" + E4_CASE_HELP)
     layers = [(width, n, mu, kappa, ax, with_b) for width, n in E4_WIDE for mu, kappa, ax, with_b in E4_WIDE_LAYERS]
     jobs = [(400, n_wide, dict(mu=mu, kappa=kappa, band_axis=ax, width=width, length=5.0 * width, n=n), E4_DIR_BANDS,
-             E4_WEAK, BANDING_METHODS if with_b else ("A_tensor",)) for width, n, mu, kappa, ax, with_b in layers]
+             E4_WIDE_WEAK, BANDING_METHODS if with_b else ("A_tensor",)) for width, n, mu, kappa, ax, with_b in layers]
     out = _map_banding(jobs, layers=True)
     tally = _new_tally()
     _print_layers([(f"strands {width:.0f} px, mu {mu:.0f}, kappa {kappa:g}, mount {ax}",
