@@ -24,7 +24,7 @@ Usage:
   python3 -I tools/lab/flake_lab.py --only E10   # selected experiments (repeatable)
   python3 -I tools/lab/flake_lab.py --save-example out.png
 
-Results of record (see README.md), 8 images per condition, about 28 minutes:
+Results of record (see README.md), 8 images per condition (E14: 16), about 32 minutes:
   python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json \
       | tee tools/lab/results-<date>.txt
 
@@ -2222,25 +2222,29 @@ def experiment_e14(images, results):
                     lim = _e14_limit(rs, base, m, kind, frac, random_layer)
                     lim["cnr"] = chp / lim["sigma"]
                     lims[f"{m}_{kind}_{lab}"] = lim
-                    w = worst.get((m, kind, lab))
-                    if w is None or lim["cnr"] > w[0]:
-                        worst[(m, kind, lab)] = (lim["cnr"], name, lim)
+                    for grp in ("all",) + (() if random_layer else ("aligned",)):
+                        w = worst.get((grp, m, kind, lab))
+                        if w is None or lim["cnr"] > w[0]:
+                            worst[(grp, m, kind, lab)] = (lim["cnr"], name, lim)
         summary[name] = dict(lims, contrast=contrast, contrast_hp=chp)
         for m in BANDING_METHODS:
             print(f"  limits {m:<8} " + " | ".join(
                 f"{kind}: Good {_e14_limit_text(lims[f'{m}_{kind}_good'], chp)}, Poor"
                 f" {_e14_limit_text(lims[f'{m}_{kind}_poor'], chp)}" for kind in ("white", "corr")))
     results["E14_summary"] = summary
-    results["E14_worst"] = {f"{m}_{kind}_{lab}": {"cnr": v[0], "layer": v[1], **v[2]}
-                            for (m, kind, lab), v in worst.items()}
-    print(" Most conservative limits across layers (largest CNR; the random layer counts for spread and in20 only): "
-          + "  ".join(f"{m} white Good {_e14_worst_text(worst[(m, 'white', 'good')])} Poor"
-                      f" {_e14_worst_text(worst[(m, 'white', 'poor')])}, corr Good"
-                      f" {_e14_worst_text(worst[(m, 'corr', 'good')])} Poor {_e14_worst_text(worst[(m, 'corr', 'poor')])}"
-                      for m in BANDING_METHODS))
-    print("  (deciding layer: " + "; ".join(
-        f"{m} {kind} {lab} {worst[(m, kind, lab)][1]}" for m in BANDING_METHODS for kind in ("white", "corr")
-        for lab in ("good", "poor")) + ")")
+    results["E14_worst"] = {f"{grp}_{m}_{kind}_{lab}": {"cnr": v[0], "layer": v[1], **v[2]}
+                            for (grp, m, kind, lab), v in worst.items()}
+    for grp, title in (("all", "across layers (largest CNR; the random layer counts for spread and in20 only)"),
+                       ("aligned", "without the random layer (its B_merged spread changes by more than the tolerance"
+                                   " already between sigma 0.006 and 0.012)")):
+        print(f" Most conservative limits {title}: " + "  ".join(
+            f"{m} white Good {_e14_worst_text(worst[(grp, m, 'white', 'good')])} Poor"
+            f" {_e14_worst_text(worst[(grp, m, 'white', 'poor')])}, corr Good"
+            f" {_e14_worst_text(worst[(grp, m, 'corr', 'good')])} Poor"
+            f" {_e14_worst_text(worst[(grp, m, 'corr', 'poor')])}" for m in BANDING_METHODS))
+        print("  (deciding layer: " + "; ".join(
+            f"{m} {kind} {lab} {worst[(grp, m, kind, lab)][1]}" for m in BANDING_METHODS for kind in ("white", "corr")
+            for lab in ("good", "poor")) + ")")
 
 
 def _e14_worst_text(w):
