@@ -50,6 +50,7 @@ targets:
       - path: FlakeScanner/Diagnostics/FlickerReadout.swift
       - path: FlakeScanner/Diagnostics/CameraScale.swift
       - path: FlakeScanner/Diagnostics/CameraReport.swift
+      - path: FlakeScanner/Diagnostics/ProbeMath.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ca.gervais.flakescanner.tests
