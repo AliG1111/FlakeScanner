@@ -28,8 +28,13 @@ Documents/Snapshots/snapshot_2026-11-23_141502/
   Snapshot.json        settings, camera state, MD, results of the one analysis
   roi.png, overlay.png, full.heic (optional)
 
-Documents/Diagnostics/diag_2026-11-23_141502/
-  CameraReport.json (with the LiDAR report), burst_000.png …, Frames.json, Flicker.json (light check with its exposure, readout-time bursts and checks), SelfTest.json
+Documents/Diagnostics/<yyyyMMdd-HHmmss>-<kind>/      one folder per probe action; kind: camera-report, samples, light, readout, noise, lidar
+  camera-report.txt / .json   every back camera's formats (size, frame rates, binning, HDR, FOV, ISO and exposure ranges, depth formats)
+  burst.json, frames.csv, strips.csv, frame-00.png …   sample frames: applied camera state, per-frame data, ROI strip means, ROI pictures
+  light-check.json / .txt, frames.csv, strips.csv        light check (flicker index, frequency, accepted) with its burst
+  readout.json / .txt, light-/burst1-/burst2- frames.csv and strips.csv   readout test: fits, checks, T_r, direction
+  noise.txt, noise-table.csv, base-/iso<N>- frames.csv and frame-00.png …   two pictures per ISO
+  lidar.json / .txt           LiDAR report (§6.17): controls accepted, switch times, camera state before / after, distances
 ```
 
 ### 7.3 `Run.json`

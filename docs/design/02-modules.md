@@ -14,7 +14,8 @@ Pure files (marked **pure**) use Foundation and Accelerate only, have no device 
 | `HomeView.swift` | Scan, Connect to the other phone, Runs, Settings / About (version, build and a link to the user guide). |
 | `AppInfo.swift` | **pure** version and build text for About from the bundle's info dictionary (P0.3). |
 | `AppSettings.swift` | **pure** `Codable` settings (`ScanSettings`: ROI, rate, method and parameters, exposure, focus, torch, MD mode, target, limits, frame saving, the highest expected speed for the conditions forecast) with defaults, validation (`clamped()`), persistence as JSON in `UserDefaults` (`settings.v1`). The same type is the remote's settings payload. |
-| `KeepScreenOn.swift`, `CameraAccess.swift` | Ported from Phone LiDAR (`ScreenAwake` holders, permission flow). |
+| `KeepScreenOn.swift`, `CameraAccess.swift` | Ported from Phone LiDAR (`ScreenAwake` holders, permission flow). `CameraAccess` is in since P0.7. |
+| `SettingsView.swift` | Settings / About page: Diagnostics and About (P0.7); more settings come with the scan screens. |
 
 ### 3.2 Capture (`Capture/`)
 
@@ -26,7 +27,8 @@ Pure files (marked **pure**) use Foundation and Accelerate only, have no device 
 | `ShotScheduler.swift` | **pure** shot selection by timestamp, skip accounting, achieved rate, pause rules (§6.9). |
 | `LevelMonitor.swift` | CoreMotion gravity → tilt (Phone LiDAR's convention), read on the data queue. |
 | `ConditionsForecast.swift` | **pure** expected result quality from speed and light: light for the speed (ISO needed and the image noise it brings against the mat's contrast), blur, movement per frame, flicker and light bands; worst-factor rating with remedies and a 3 s hold (§6.18). |
-| `LidarDistance.swift` | LiDAR depth camera session for the distance reading at Start and on demand (§6.17): a format with depth delivery, unfiltered `DepthFloat32` maps paired with video by `AVCaptureDataOutputSynchronizer` (Phone LiDAR's Line scan setup); session changes on the session queue, maps on the data queue; device only. |
+| `CaptureRig.swift` | Built in P0.7: one back camera in an `AVCaptureSession` with the fixed processing of §6.10 (stabilization off, video HDR off, low-light boost off, distortion correction on, intrinsics delivery on, sensor orientation), a format and a fixed frame duration, exposure, focus and white-balance locks, `CameraStateRecord`; frames to a handler on the data queue. The probe uses it; `CapturePipeline` (P3) grows from it. |
+| `LidarDistance.swift` | (built in P0.7) LiDAR depth camera session for the distance reading at Start and on demand (§6.17): a format with depth delivery, unfiltered `DepthFloat32` maps paired with video by `AVCaptureDataOutputSynchronizer` (Phone LiDAR's Line scan setup); session changes on the session queue, maps on the data queue; device only. |
 | `CameraScale.swift` | **pure** ROI footprint in the depth map, median distance and spread, validity checks, mm per px from the distance and fₓ (§6.17). |
 
 ### 3.3 Motion (`Motion/`)
@@ -42,6 +44,7 @@ Pure files (marked **pure**) use Foundation and Accelerate only, have no device 
 | File | Responsibility |
 |---|---|
 | `LumaImage.swift` | **pure** Float32 planar image (row-major, explicit stride), crop, 8-bit conversion; `NormalizedRect` ↔ pixel rectangles with filter margins. |
+| `NormalizedRect.swift` | **pure** (built in P0.7, in `Measurement/`) the ROI as fractions of the buffer: `centered`, `clamped`, `pixelBounds`. `LumaImage` uses it for crops. |
 | `Kernels.swift` | **pure** Gaussian and derivative-of-Gaussian kernels; separable convolution (vImage) with reflected borders. |
 | `RowNormalizer.swift` | **pure** banding correction for *Edge orientation*: each sensor row divided by its mean (*Rows* regime) or by the moving average of the row means over 0.7 flake widths, at most 25 rows (*Smoothed* regime) (§6.2). |
 | `TensorOrientation.swift` | **pure** structure tensor and the *Edge orientation* estimator (§6.4). |
@@ -75,6 +78,7 @@ Pure files (marked **pure**) use Foundation and Accelerate only, have no device 
 | `Runs/RunRecovery.swift` | **pure core** repair of cut-off CSV/JSON and recovery of interrupted runs. It recovers folders whose `.running` marker holds another app launch's ID, and folders whose marker holds this launch's ID once `RunStore` no longer reports their run as active (a run that stopped with an error), so the run being recorded is never touched and an error-stopped run does not wait for the next launch. The scan takes the active run from `RunStore` when it starts; Start waits for a running scan to finish, so no run begins during a scan. The scan runs at launch, when the library opens and after a run stops with an error. A recovered run is listed as incomplete with its `endReason`: the error text the recorder wrote, or `interruption` when there is none. |
 | `Library/*` | Runs list, run screen, `HistogramChart`, `RoseChart` (Swift Charts / `Canvas`), `TimeSeriesChart`, frame browser, share. |
 | `Storage/Formatting.swift` | `Units.bytes` and `CSV.escape` / `CSV.make` from Phone LiDAR's `Storage/Formatting.swift`, plus `Num.fixed` (locale-independent fixed decimals) (P0.3). Copied when first needed: `TextFileWriter` and `SpeedText` from Phone LiDAR's `Line/LineRecording.swift`, `JSONEncoder.pretty` and `JSONDecoder.iso` from its `Storage/ScanStore.swift` (P5, P6). |
+| `Storage/JSONCoding.swift` | **pure** `JSONFile.encode` / `decode`: the shared pretty encoder (sorted keys) for files the app writes (P0.7). |
 
 ### 3.7 Remote (`Remote/`)
 
@@ -99,7 +103,10 @@ Exact port sources at `1ac68a7`: `PhoneLidar/Remote/` (`RemoteConnection`, `Remo
 | `Diagnostics/DiagnosticsCapture.swift` | Device: short bursts at a chosen format with locked exposure; ROI PNGs and per-frame camera data. |
 | `Diagnostics/FlickerReadout.swift` | **pure** light check (flicker index, flicker frequency and mains frequency from a burst at 1/27 s, DFT bins 4, 6, 8 and 12 of each strip) and readout time (phase slope of the flicker bin across the strips of a burst at an exposure of 1/(2F), with its plausibility checks) (§6.16); used by Diagnostics (P0.7) and by the light check at Start (P3.1). |
 | `Diagnostics/SelfTest.swift` | **pure** runs the bundled fixture images (`FlakeScanner/Diagnostics/Fixtures/`, copied from `tools/lab/fixtures/`) through `FrameAnalyzer` and compares with their stored results. |
-| `Diagnostics/DiagnosticsView.swift`, `DiagnosticsExport.swift` | Screen and the zip export (directory zipped by `NSFileCoordinator` for upload). |
+| `Diagnostics/DiagnosticsView.swift`, `DiagnosticsModel.swift`, `DiagnosticsStore.swift` | Screen, its state and actions, and the folder layout with the zip export (directory zipped by `NSFileCoordinator` for upload) (P0.7). The self-test is not in the P0.7 build: it needs `FrameAnalyzer` (P2). |
+| `Diagnostics/LidarProbe.swift` | Device: the camera switch as Start does it (run camera settles and its state is recorded, LiDAR camera, back, locks), times, accepted controls, distance zones (§6.17). |
+| `Diagnostics/CameraReportBuilder.swift` | Device: reads the back cameras into `CameraReport`. |
+| `Diagnostics/ProbeMath.swift` | **pure** settle time, relative change, frame rate, LiDAR distance zones. |
 | `Target/TargetLayout.swift` | **pure** `Codable` layout of a printed target: markers, reference bar, flakes with their angles and positions (version 1 bundled; generated with the PDF by `tools/lab`). |
 | `Target/TargetDetector.swift` | **pure** marker detection, homography from the four markers, reference-bar angle (§6.15). |
 | `Target/TargetTracker.swift` | **pure** follows the four markers of a moving sheet in every camera frame on the data queue, with small local templates; travel direction and taping angle from the track (§6.15 step 5). |

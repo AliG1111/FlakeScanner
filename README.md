@@ -76,6 +76,14 @@ For each TestFlight build:
 
 The job also keeps the signed `.ipa` as the artifact `FlakeScanner-signed-ipa-<run>`.
 
+### 4. Diagnostics (the probe build)
+
+The first builds carry **Settings / About › Diagnostics**, a probe that measures what the design assumes: the cameras' formats, the
+plant light (flicker), the sensor's readout time, image noise per ISO, the LiDAR distance, and real pictures of flakes with their
+camera data. Follow [docs/validation/P0.8-probe-procedure.md](docs/validation/P0.8-probe-procedure.md). Results are written to
+**Files › Flake Scanner › Diagnostics** on the phone and leave it only when you share the zip (**Make the zip to share**, then
+**Share the zip**). Delete them with **Delete all results**. Never commit them: they hold plant pictures.
+
 ## Mounting and lighting (preliminary, from the design's error budget)
 
 - Camera pointing straight down: the level turns amber above 1° and red above 3° of tilt.
