@@ -24,7 +24,7 @@ Usage:
   python3 -I tools/lab/flake_lab.py --only E10   # selected experiments (repeatable)
   python3 -I tools/lab/flake_lab.py --save-example out.png
 
-Results of record (see README.md), 8 images per condition (E14: 16), about 36 minutes:
+Results of record (see README.md), 8 images per condition (E14: 16), about 47 minutes:
   python3 -I tools/lab/flake_lab.py --images 8 --json tools/lab/results-<date>.json \
       | tee tools/lab/results-<date>.txt
 
@@ -642,10 +642,10 @@ def run_condition(seed, images, width_set=None, normalize=None, probe=None, **ma
 BANDING_METHODS = ("A_tensor", "B_merged")
 BAND_DARK_MIN = 0.15     # exclude a shot (both methods) whose row_min is below this (near-dark rows)
 BAND_GRAD_MIN = 0.03     # cycle-3 flag on grad_frac; printed for comparison only (it grows as the ROI narrows)
-BAND_COMMON_MIN = 0.01   # strip-common rule: a shot is corrected when band_common >= this
-BAND_STRIP_ROW_MIN = None  # ... and A_tensor excluded on a flagged shot whose row_min is below this (None: never)
-# The width-aware rule (review cycle 5 part 2), kept for comparison:
-BAND_WIDTH_COMMON_MIN = 0.01  # its flag
+BAND_COMMON_MIN = 0.01   # A_tensor is corrected (by the run's regime, below) when band_common >= this
+BAND_B_COMMON_MIN = 0.0025  # B_merged is excluded when band_common >= this (review cycle 5 part 3: kept raw between
+                         # 0.0025 and 0.01, weak bands failed B in 60 E4 cases; no correction keeps B within the
+                         # tolerances, strip-common included)
 BAND_WIDE_W = 30.0      # wide strands: set flake width (px) from which the along window (>= 21 rows) leaves too
                          # much of a short band (E4 wide strands: along is off by +0.3 to +0.8 deg on the mean, up to
                          # +0.6 on the spread, under sine 40 and PWM 135 at psi 20-80; 24 px, 17 rows, passes) ...
@@ -751,8 +751,9 @@ def strip_normalize8(img8, band_axis="y"):
     return np.clip(np.round(out), 0, 255).astype(np.uint8)
 
 
-def banding_rule(met, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN, a_row_min=BAND_STRIP_ROW_MIN):
-    """The banding rule for one shot (review cycle 5): strip-common correction of flagged shots, both methods.
+def banding_rule_strip(met, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN, a_row_min=None):
+    """Strip-common rule for one shot (review cycle 5 part 3, a comparison; not adopted: it keeps neither method
+    within the tolerances as often as banding_rule, see E4): strip-common correction of flagged shots, both methods.
     met: banding_metrics of the raw shot. common_min None corrects every shot that is not dark; a_row_min (None:
     off) excludes A_tensor on flagged shots whose row_min is below it. Returns (A_tensor correction, B_merged
     correction, state): a correction is None (excluded), "none" (raw) or "strip" (strip_normalize8); state is
@@ -764,18 +765,21 @@ def banding_rule(met, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN, a_row_
     return (None if a_row_min is not None and met["row_min"] < a_row_min else "strip"), "strip", "flagged"
 
 
-def banding_rule_width(met, regime, wset, dark_min=BAND_DARK_MIN, common_min=BAND_WIDTH_COMMON_MIN):
-    """The width-aware rule of review cycle 5 part 2, kept for comparison. met: banding_metrics of the raw shot;
-    regime: the run's (condition_regime); wset: flake width setting (px). Returns (A_tensor correction, B_merged
-    kept, state): the correction is None (excluded), "none", "rows" (every row divided by its mean) or an int W
-    (row means smoothed over W rows); state is "dark", "clean" or "flagged". B_merged is excluded on every flagged
-    shot. Regime "none" excludes A_tensor on every flagged shot too. Regime "along" excludes A_tensor when row_min
+def banding_rule(met, regime, wset, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN,
+                 b_common_min=BAND_B_COMMON_MIN):
+    """The banding rule for one shot (review cycle 5, width-aware). met: banding_metrics of the raw shot; regime:
+    the run's (condition_regime); wset: flake width setting (px). Returns (A_tensor correction, B_merged kept,
+    state): the correction is None (excluded), "none", "rows" (every row divided by its mean) or an int W (row means
+    smoothed over W rows); state is "dark", "clean" (A raw) or "flagged" (band_common >= common_min). B_merged is
+    kept raw below b_common_min and excluded at or above it: no correction keeps it within the tolerances, and
+    weak bands below the A flag still move it. Regime "none" excludes A_tensor on every flagged shot. Regime "along" excludes A_tensor when row_min
     < BAND_SMOOTH_ROW_MIN, and for wide strands (wset >= BAND_WIDE_W) when band_common >= BAND_ALONG_COMMON_MAX: a
     window of 21 rows or more leaves about half of a 40-row band, which a strong band turns into a bias."""
     if met["row_min"] < dark_min:
         return None, False, "dark"
+    keep_b = bool(met["band_common"] < b_common_min)
     if met["band_common"] < common_min:
-        return "none", True, "clean"
+        return "none", keep_b, "clean"
     if regime == "rows":
         return "rows", False, "flagged"
     if regime == "none":
@@ -836,7 +840,7 @@ def _banding_eval(shots, wset, methods, dark_min=BAND_DARK_MIN):
         met, est, tth = s["met"], dict(s["est"]), s["tth"]
         ts = axial_stats(tth)
         for v, forced_regime in BAND_WIDTH_RULES:
-            corr, keep_b, state = banding_rule_width(met, forced_regime or regime, wset, dark_min)
+            corr, keep_b, state = banding_rule(met, forced_regime or regime, wset, dark_min)
             if v == "width":
                 counts["flagged_grad"] += int(met["grad_frac"] >= BAND_GRAD_MIN)
                 if state == "dark":
@@ -856,7 +860,7 @@ def _banding_eval(shots, wset, methods, dark_min=BAND_DARK_MIN):
             if "B_merged" in methods:
                 est[v]["B_merged"] = est["raw"]["B_merged"] if keep_b else None
         for v, t, rm in BAND_STRIP_RULES:
-            ca, cb, state = banding_rule(met, dark_min, t, BAND_SMOOTH_ROW_MIN if rm else None)
+            ca, cb, state = banding_rule_strip(met, dark_min, t, BAND_SMOOTH_ROW_MIN if rm else None)
             if not rm and state == "flagged":
                 counts["flag_" + v] += 1
             est[v] = {"A_tensor": None if pick[ca] is None else est[pick[ca]]["A_tensor"]}
@@ -913,8 +917,8 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, methods=BANDING_
       sc1 / sc05 / sc025 / scall  banding_rule per shot: row_min < dark_min excludes both methods; shots flagged
               by band_common >= 0.01 / 0.005 / 0.0025 / every shot are strip-corrected for both methods, the
               others stay raw; "_rm" also excludes A_tensor on flagged shots with row_min < BAND_SMOOTH_ROW_MIN
-      width   the width-aware rule (banding_rule_width, flag BAND_WIDTH_COMMON_MIN): B_merged excluded on flagged
-              shots, A_tensor corrected by the condition's regime (condition_regime: median psi and R of A_tensor
+      width   the adopted rule (banding_rule): B_merged excluded when band_common >= BAND_B_COMMON_MIN, raw below;
+              A_tensor flagged by band_common >= BAND_COMMON_MIN and corrected by the condition's regime (condition_regime: median psi and R of A_tensor
               on the "line" copy, and the flake width): "rows" divides every row by its mean, "along" divides by
               the row means smoothed over band_window rows (A excluded when row_min < BAND_SMOOTH_ROW_MIN, or for
               wide strands when band_common >= BAND_ALONG_COMMON_MAX), "none" excludes A
@@ -923,7 +927,7 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, methods=BANDING_
     Returns {variant: {method: pooled stats with "se"}, "truth": ..., "_probe": [banding_metrics per image],
     "_dir": [(psi, R) per image], "_regime": {"regime", "psi", "R"} (the condition's), "_wset", "_err": {variant:
     {method: [(mean err, sd err, in20 err) per image, None for an excluded shot]}}, "_rule": {"excluded": shots
-    excluded for dark rows, "flagged": shots with band_common >= BAND_WIDTH_COMMON_MIN, "flag_sc1" ...: shots each
+    excluded for dark rows, "flagged": shots with band_common >= BAND_COMMON_MIN, "flag_sc1" ...: shots each
     strip-common variant corrects, "flagged_grad": shots with grad_frac >= BAND_GRAD_MIN (the cycle-3 flag, for
     comparison), "shot_rows" / "shot_along" / "shot_none": flagged shots per regime had it been decided per
     shot}}. run_banding_layer gives the same result for each of a layer's conditions while rendering every mat
@@ -1265,7 +1269,7 @@ def _print_rule_condition(name, r, ctrl_raw_err, images, v):
     print(f" {name}")
     c = r["_rule"]
     rows = [("raw", "raw", ""), ("line", "line", ""),
-            ("width", "width", f" (dark rows: excluded {c['excluded']}/{images}; band_common >= {BAND_WIDTH_COMMON_MIN}"
+            ("width", "width", f" (dark rows: excluded {c['excluded']}/{images}; band_common >= {BAND_COMMON_MIN}"
                                f" flagged {c['flagged']}, regime {_regime_text(r)})")]
     rows += [(f"strip {lab}", sv, f" (corrected {c['flag_' + sv]})") for sv, lab in STRIP_SHOW]
     for title, var, extra in rows:
@@ -1405,7 +1409,7 @@ def _print_tally(title, tally, results, key):
         return f"{a}/{n}" if n else "-"
     nl = len(tally["layers"])
     npass = sum(tally["layers"].values())
-    print(f" Verdicts, {title}: {tally['cases']} band cases. Width-aware rule: A {cnt('width', 'A_tensor')} (5-shot"
+    print(f" Verdicts, {title}: {tally['cases']} band cases. Rule (width-aware): A {cnt('width', 'A_tensor')} (5-shot"
           f" subsets included; {npass}/{nl} layers pass with every band), B {cnt('width', 'B_merged')}. Strip-common: "
           + "; ".join(f"{_flag_text(t)} A {cnt(sv, 'A_tensor')} (with A excluded below row_min {BAND_SMOOTH_ROW_MIN}"
                       f" {cnt(sv + '_rm', 'A_tensor')}), B {cnt(sv, 'B_merged')}" for sv, t in BAND_STRIP_FLAGS) + ".")
@@ -1463,29 +1467,38 @@ def _print_line_costs(title, items, results, key):
               f"{v['false_flags'][0.0025]} of {v['shots']})" for name, v in rows.items()))
 
 
-def _slim(r):
-    """A banding result for the JSON file: floats rounded to 4 decimals (the per-shot lists dominate its size)."""
+# Variants whose per-shot errors the JSON file keeps; the others follow from them and "_probe" (raw, line, smooth,
+# strip per shot, band_common and row_min decide every rule variant)
+BAND_JSON_ERR = ("raw", "line", "smooth", "strip", "width")
+
+
+def _slim(r, top=True):
+    """A banding result for the JSON file: per-shot errors of BAND_JSON_ERR only, floats rounded to 4 decimals
+    (the per-shot lists dominate the file's size)."""
+    if top and isinstance(r, dict) and "_err" in r:
+        r = dict(r, _err={v: e for v, e in r["_err"].items() if v in BAND_JSON_ERR})
     if isinstance(r, dict):
-        return {k: _slim(x) for k, x in r.items()}
+        return {k: _slim(x, False) for k, x in r.items()}
     if isinstance(r, (list, tuple)):
-        return [_slim(x) for x in r]
+        return [_slim(x, False) for x in r]
     if isinstance(r, (float, np.floating)):
         return round(float(r), 4)
     return r
 
 
 E4_RULE_HELP = (
-    f"    Rules compared. Strip-common (banding_rule): shots with row_min < {BAND_DARK_MIN} excluded (both methods);"
-    " a shot flagged by band_common\n    (>= 0.01, 0.005, 0.0025, or every shot) is divided row by row by the"
-    " median over the 6 strips of (strip row mean / strip mean),\n    for A_tensor and B_merged alike; the others"
-    f" stay raw; rm = A also excluded on flagged shots with row_min < {BAND_SMOOTH_ROW_MIN}. Width-aware (review\n"
-    f"    cycle 5 part 2, banding_rule_width): flag band_common >= {BAND_WIDTH_COMMON_MIN}, B_merged excluded on"
-    f" flagged shots, A_tensor by the run's regime: {_regime_rule_text()}.\n"
+    f"    Rules. Both exclude shots with row_min < {BAND_DARK_MIN} (both methods). The rule (banding_rule, width-aware;"
+    f" \"width\" below): B_merged excluded\n    when band_common >= {BAND_B_COMMON_MIN}, raw below; A_tensor raw below"
+    f" band_common {BAND_COMMON_MIN}, above it corrected by the run's regime: {_regime_rule_text()}.\n"
+    "    Strip-common (banding_rule_strip, a comparison): a shot flagged by band_common (>= 0.01, 0.005, 0.0025, or"
+    " every shot) is divided\n    row by row by the median over the 6 strips of (strip row mean / strip mean), for"
+    f" A_tensor and B_merged alike; the others stay raw;\n    rm = A also excluded on flagged shots with row_min <"
+    f" {BAND_SMOOTH_ROW_MIN}.\n"
     "    Tolerances: within 0.25 deg mean, 0.5 deg sd and 2 points in20 of the control, or excluded (random layer:"
     " sd and in20 only).")
 E4_CASE_HELP = (
     "    Per band: changes from the control's raw estimate as mean/sd/in20 (deg, deg, points) for A and B: raw, the"
-    " width-aware rule (its\n    regime), strip-common at each threshold (>=.01, >=.005, >=.0025, all); dark = shots"
+    " rule (width-aware, its\n    regime), strip-common at each threshold (>=.01, >=.005, >=.0025, all); dark = shots"
     " excluded for dark rows; corrected = shots\n    strip-common corrects per threshold; median psi and R; bc ="
     " band_common median [min]; row_min minimum; weak bands show their amplitude.\n    Verdicts: width A pass ="
     " within the tolerances under the rule's regime and every regime medians of 5-shot subsets pick; B ok;\n"
@@ -1649,7 +1662,7 @@ def _print_layers(specs, out, results, tally):
 def experiment_e4_dir(images, results, ctrl):
     print(f"\nE4  (cont.) ROI width and band detectors on mats without bands ({2 * images} images per layer, seed"
           " 400): share of shots at or above\n    the flag of band_common (>= "
-          f"{BAND_WIDTH_COMMON_MIN}) and of grad_frac (>= {BAND_GRAD_MIN}), with the ROI narrowed along the sensor"
+          f"{BAND_COMMON_MIN}) and of grad_frac (>= {BAND_GRAD_MIN}), with the ROI narrowed along the sensor"
           " rows; darkest row\n    (row_min, full ROI width) minimum. Strands are 120 px long, so 256 px = 2 flake"
           " lengths.")
     roi = _map_banding_fn(_roi_job, [(mu, kappa, ax, 2 * images) for _l, mu, kappa, ax in E4_ROI_LAYERS])
@@ -1659,7 +1672,7 @@ def experiment_e4_dir(images, results, ctrl):
         for w in E4_ROI_WIDTHS:
             bc = np.array([m["band_common"] for m in mets[w]])
             gf = np.array([m["grad_frac"] for m in mets[w]])
-            row[w] = {"band_common_share": float(np.mean(bc >= BAND_WIDTH_COMMON_MIN)),
+            row[w] = {"band_common_share": float(np.mean(bc >= BAND_COMMON_MIN)),
                       "band_common_max": float(bc.max()),
                       "grad_frac_share": float(np.mean(gf >= BAND_GRAD_MIN)), "grad_frac_max": float(gf.max()),
                       "row_min_min": float(min(m["row_min"] for m in mets[w]))}
