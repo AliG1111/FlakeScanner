@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check that requirements and implementation plan agree (traceability).
 
-Every FR-/NFR- ID in docs/requirements.md must be defined once and cited by at least one
+Every FR-/NFR- ID in docs/requirements/*.md must be defined once and cited by at least one
 task line in docs/implementation-plan.md section 6, and its phase column must equal the set
 of phases of the tasks that cite it ("All" is accepted as is). IDs cited in the plan must
 exist. Every task line ("- [ ]" or "- [x]") cites at least one ID or is marked [process].
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-REQ = ROOT / "docs" / "requirements.md"
+REQ_DIR = ROOT / "docs" / "requirements"
 PLAN = ROOT / "docs" / "implementation-plan.md"
 
 # Requirement rows, tolerating bold and missing spaces: "| FR-APP-07 |", "| **FR-APP-07** |", "|FR-CAP-11|"
@@ -87,39 +87,43 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     cites, problems = plan_citations()
-    req_lines = REQ.read_text(encoding="utf-8").splitlines(keepends=True)
     fixable = 0
-    known: dict[str, int] = {}
-    for i, line in enumerate(req_lines):
-        m = ROW.match(line)
-        if not m:
-            continue
-        rid = m.group(1)
-        if rid in known:
-            problems.append(f"{rid}: defined twice (requirements lines {known[rid]} and {i + 1})")
-            continue
-        known[rid] = i + 1
-        cells = line.rstrip("\n").strip().strip("|").split("|")
-        cell = cells[-2]
-        stated = parse_phase_cell(cell)
-        derived = cites.get(rid, set())
-        if not derived:
-            problems.append(f"{rid}: not cited by any task in the plan")
-            continue
-        if stated is None:
-            continue
-        if stated != derived:
-            want = ", ".join(sorted(derived, key=phase_key))
-            problems.append(f"{rid}: requirements say '{cell.strip()}', plan tasks give '{want}'")
-            fixable += 1
-            if args.fix:
-                cells[-2] = f" {want} "
-                req_lines[i] = "|" + "|".join(cells) + "|\n"
+    known: dict[str, str] = {}
+    for req_file in sorted(REQ_DIR.glob("*.md")):
+        req_lines = req_file.read_text(encoding="utf-8").splitlines(keepends=True)
+        changed = False
+        for i, line in enumerate(req_lines):
+            m = ROW.match(line)
+            if not m:
+                continue
+            rid = m.group(1)
+            where = f"{req_file.name}:{i + 1}"
+            if rid in known:
+                problems.append(f"{rid}: defined twice (requirements {known[rid]} and {where})")
+                continue
+            known[rid] = where
+            cells = line.rstrip("\n").strip().strip("|").split("|")
+            cell = cells[-2]
+            stated = parse_phase_cell(cell)
+            derived = cites.get(rid, set())
+            if not derived:
+                problems.append(f"{rid}: not cited by any task in the plan")
+                continue
+            if stated is None:
+                continue
+            if stated != derived:
+                want = ", ".join(sorted(derived, key=phase_key))
+                problems.append(f"{rid}: requirements say '{cell.strip()}', plan tasks give '{want}'")
+                fixable += 1
+                if args.fix:
+                    cells[-2] = f" {want} "
+                    req_lines[i] = "|" + "|".join(cells) + "|\n"
+                    changed = True
+        if args.fix and changed:
+            req_file.write_text("".join(req_lines), encoding="utf-8")
     for rid in sorted(set(cites) - set(known)):
         problems.append(f"{rid}: cited in the plan but not defined in the requirements")
 
-    if args.fix:
-        REQ.write_text("".join(req_lines), encoding="utf-8")
     for p in problems:
         print(p)
     print(f"{len(known)} requirements, {len(problems)} problem(s)" + (" (phase cells rewritten)" if args.fix else ""))

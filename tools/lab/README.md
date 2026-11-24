@@ -46,7 +46,7 @@ E1 bias vs mean direction · E2 spread vs concentration · E3 motion blur · E4 
 
 `--images` sets the bursts per case in E13 too (2 with `--quick`, otherwise 4).
 
-Results of record: [`results-2026-11-23.txt`](results-2026-11-23.txt) (and `.json`). Summary and conclusions: [design §6.13](../../docs/design.md#613-lab-validation-synthetic-mats).
+Results of record: [`results-2026-11-23.txt`](results-2026-11-23.txt) (and `.json`). Summary and conclusions: [design §6.13](../../docs/design/06-lab-validation.md#613-lab-validation-synthetic-mats).
 
 ## Rules
 
