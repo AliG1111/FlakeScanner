@@ -75,6 +75,7 @@ Owner's token rules (2026-11-24): Opus only for design and milestone final revie
 - Real data before more simulation: no new speculative lab experiments before the probe's frames (P0.8); later lab runs use them.
 - Lab runs and CI report summaries (pass counts, worst cases, failing tests), not logs; agents read results files by grep, never whole.
 - Group small fixes into one commit and one CI build.
+- Usage (owner, 2026-11-24): pause when about 5 % of the session's usage is left, at a clean point (work committed and pushed, plan updated), and resume after the reset; without a usage reading, keep every step at a clean checkpoint and stop at the next one when a limit warning appears.
 
 ## 4. Self-review checklist
 

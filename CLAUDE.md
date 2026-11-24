@@ -119,6 +119,9 @@ Owner's token rules (2026-11-24): Opus only for design and milestone final revie
 - Real data before more simulation: no new speculative lab experiments before the probe's frames (P0.8).
 - Lab runs and CI report summaries (pass counts, worst cases, failing tests), not logs; read results files by grep.
 - Group small fixes into one commit and one CI build. Docs split into per-topic files and this file trimmed in P0.9.
+- Usage (owner, 2026-11-24): pause when about 5 % of the session's usage is left, at a clean point (work committed
+  and pushed, plan updated), and resume after the reset. Without a usage reading, keep every step at a clean
+  checkpoint and stop at the next one when a limit warning appears; agents commit work in progress the same way.
 
 ## Coding conventions
 - Units in names: `_deg`, `_px`, `_mm`, `_s`, `_pxPerS`, `_mmPerS` (or a doc comment). Degrees at API boundaries and in
