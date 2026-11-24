@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import UIKit
 
 /// What a probe burst recorded about itself, written next to its data (JSON).
@@ -56,7 +56,7 @@ final class DiagnosticsModel: ObservableObject {
 
     /// Usable formats of the wide camera: (index, text).
     var formatOptions: [(index: Int, text: String)] {
-        guard let device = CaptureRig.backDevice(.builtInWideCamera) else { return [] }
+        guard let device = CaptureRig.backDevice(.builtInWideAngleCamera) else { return [] }
         return CaptureRig.usableFormatIndices(of: device).map { ($0, CaptureRig.summary(device.formats[$0])) }
     }
 
@@ -243,9 +243,11 @@ final class DiagnosticsModel: ObservableObject {
             // Exposure 1/(2F) removes every even harmonic of the light; ISO keeps the brightness of the light check.
             let exposure = 1.0 / (2.0 * check.flickerHz)
             let iso = light.isoUsed * light.exposureUsed_s / exposure
+            let format = chosenFormat
+            let region = roi
             func readoutRequest() -> BurstRequest {
-                BurstRequest(formatIndex: chosenFormat, fps: 27, frames: FlickerReadout.burstFrames,
-                             exposure: .manual(duration_s: exposure, iso: iso), roi: roi)
+                BurstRequest(formatIndex: format, fps: 27, frames: FlickerReadout.burstFrames,
+                             exposure: .manual(duration_s: exposure, iso: iso), roi: region)
             }
             let first = try await burst(readoutRequest(), label: "Readout test 2 of 4: first burst")
             try saveBurst(first, in: folder, prefix: "burst1-")

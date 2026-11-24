@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import UIKit
 
 /// Camera permission helper (ported from Phone LiDAR). Without it a denied camera only shows nothing.

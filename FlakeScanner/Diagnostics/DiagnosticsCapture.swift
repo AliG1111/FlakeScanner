@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import CoreMedia
 import CoreMotion
 import CoreGraphics
@@ -15,7 +15,7 @@ enum BurstExposure: Sendable {
 }
 
 struct BurstRequest: Sendable {
-    var deviceType: AVCaptureDevice.DeviceType = .builtInWideCamera
+    var deviceType: AVCaptureDevice.DeviceType = .builtInWideAngleCamera
     var formatIndex: Int?
     var fps = 30
     var frames = 8

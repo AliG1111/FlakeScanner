@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 
 /// Time from the first call of `mark()` to the first `frame()`: how long a camera took to deliver after it started.
 private final class FirstFrameTimer: @unchecked Sendable {
@@ -34,7 +34,7 @@ enum LidarProbe {
         guard LidarDistance.isSupported, let lidarDevice = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) else {
             throw CaptureError.noCamera("This iPhone has no LiDAR camera.")
         }
-        guard let wide = CaptureRig.backDevice(.builtInWideCamera) else {
+        guard let wide = CaptureRig.backDevice(.builtInWideAngleCamera) else {
             throw CaptureError.noCamera("This iPhone has no wide camera.")
         }
         var notes: [String] = []

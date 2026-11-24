@@ -1,11 +1,11 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import UIKit
 
 /// Builds the camera report (FR-APP-06 a) from the phone's back cameras. Device only.
 enum CameraReportBuilder {
     static let deviceTypes: [AVCaptureDevice.DeviceType] = [
-        .builtInWideCamera, .builtInUltraWideCamera, .builtInTelephotoCamera, .builtInLiDARDepthCamera,
+        .builtInWideAngleCamera, .builtInUltraWideCamera, .builtInTelephotoCamera, .builtInLiDARDepthCamera,
     ]
 
     @MainActor
