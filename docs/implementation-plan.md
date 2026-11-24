@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Document | Process, model delegation, self-review, review protocol, phased checklists, change log |
-| State | Planning (P0.1) in the M0 review cycle ([reviews/2026-11-23-M0.md](reviews/2026-11-23-M0.md)): cycles 1–5 found 21, 15, 12, 12 and 18 issues, all fixed in the docs; under the owner's cap of 2 review cycles per milestone (2026-11-24) the M0 final review of the changed sections found 8 more (M0-79…M0-86), all fixed and checked; pull request #2 merged as `de71c3b` on 2026-11-24 (17:35 UTC), M0 docs complete. GitHub repository `AliG1111/FlakeScanner` created (P0.2). App skeleton and CI (P0.3–P0.6) merged with pull request #1 (build 7 on `main`). P0.9 (docs split) is done, pending its pull request. Next: P0.7–P0.8 (device probe build and its run at the line), owner's look at the plan. |
+| State | Planning (P0.1) in the M0 review cycle ([reviews/2026-11-23-M0.md](reviews/2026-11-23-M0.md)): cycles 1–5 found 21, 15, 12, 12 and 18 issues, all fixed in the docs; under the owner's cap of 2 review cycles per milestone (2026-11-24) the M0 final review of the changed sections found 8 more (M0-79…M0-86), all fixed and checked; pull request #2 merged as `de71c3b` on 2026-11-24 (17:35 UTC), M0 docs complete. GitHub repository `AliG1111/FlakeScanner` created (P0.2). App skeleton and CI (P0.3–P0.6) merged with pull request #1 (build 7 on `main`). P0.9 (docs split) is done (pull request #3 merged as `5ba14a7` on 2026-11-24). P0.7 (device probe build) is in progress; next P0.8 (its run at the line, owner) and the owner's look at the plan. |
 | Date | 2026-11-23 |
 | Related | [requirements.md](requirements.md), [design.md](design.md), [../CLAUDE.md](../CLAUDE.md), [reviews/](reviews/) |
 
@@ -15,7 +15,7 @@ Agents keep this file current: tick a task when its PR is merged, add a change-l
 
 | Phase | Content | Milestone | State |
 |---|---|---|---|
-| P0 | Bootstrap: planning docs and lab (milestone M0), GitHub repository, XcodeGen app skeleton, CI (build, unit tests, optional TestFlight), device probe build and its run at the line | M0, M1 | P0.1 in review; P0.2–P0.6 done (build 7); P0.7–P0.8 next |
+| P0 | Bootstrap: planning docs and lab (milestone M0), GitHub repository, XcodeGen app skeleton, CI (build, unit tests, optional TestFlight), device probe build and its run at the line | M0, M1 | P0.1 in review; P0.2–P0.6 and P0.9 done (build 7); P0.7 in progress, P0.8 next |
 | P1 | Measurement core I: axial statistics, image buffers and filters, *Edge orientation*, quality metrics, synthetic mats in Swift | M1 | Not started |
 | P2 | Measurement core II: *Flake edges* with collinear merging, flake width, motion and machine direction, frame analyzer, scheduler and coverage, test-target detection | M1 | Not started |
 | P3 | Capture pipeline on the device: camera, formats, exposure/focus locks, shots, level, scale | M1 | Not started |
