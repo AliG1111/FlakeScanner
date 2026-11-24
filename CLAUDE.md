@@ -8,7 +8,8 @@ over direct phone-to-phone Wi-Fi (the remote link ported from Phone LiDAR).
 
 State: M0 docs complete (PR #2 merged as de71c3b on 2026-11-24); repository `AliG1111/FlakeScanner`; app skeleton and CI
 (P0.3–P0.6) merged on `main` (PR #1, build 7); the docs split (P0.9) is done (PR #3 merged as 5ba14a7 on 2026-11-24);
-the device probe build (P0.7) is in progress, then the probe run at the line (P0.8, owner).
+the device probe build (P0.7) is done (PR #4, build 29); the probe run at the line (P0.8, owner) is next, following
+docs/validation/P0.8-probe-procedure.md.
 Next steps: docs/implementation-plan.md §6.
 
 ## Docs (load only what you need)
