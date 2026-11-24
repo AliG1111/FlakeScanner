@@ -45,6 +45,11 @@ targets:
       - path: Tests/FlakeScannerTests
       - path: FlakeScanner/App/AppInfo.swift
       - path: FlakeScanner/Storage/Formatting.swift
+      - path: FlakeScanner/Storage/JSONCoding.swift
+      - path: FlakeScanner/Measurement/NormalizedRect.swift
+      - path: FlakeScanner/Diagnostics/FlickerReadout.swift
+      - path: FlakeScanner/Diagnostics/CameraScale.swift
+      - path: FlakeScanner/Diagnostics/CameraReport.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ca.gervais.flakescanner.tests
