@@ -7,9 +7,10 @@ region of interest (ROI). Methods: *Flake edges* (LSD-style straight edges with 
 orientation* (structure tensor). MD is detected from the mat's movement. A second iPhone controls the scanner over
 direct phone-to-phone Wi-Fi (Phone LiDAR's remote link, plus a live preview and ROI drawing on the remote).
 
-State: planning (P0.1) in the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–4 fixed, cycle 5 next); the GitHub
-repository is `AliG1111/FlakeScanner`; the app skeleton and CI (P0.3–P0.6) are merged on `main` (PR #1, build 7); next is
-the device probe build (P0.7).
+State: planning (P0.1) at the end of the M0 docs review (`docs/reviews/2026-11-23-M0.md`, cycles 1–5 fixed; the final
+review of the changed sections is next, under the owner's cap of 2 review cycles per milestone from 2026-11-24); the
+GitHub repository is `AliG1111/FlakeScanner`; the app skeleton and CI (P0.3–P0.6) are merged on `main` (PR #1, build 7);
+next are the docs split (P0.9) and the device probe build (P0.7).
 Next steps in docs/implementation-plan.md §6.
 
 ## Hard constraints
@@ -87,35 +88,37 @@ README.md                    User guide (build, install, mount, use)
 ## Model and reasoning delegation
 Full matrix: docs/implementation-plan.md §2. Every plan task names its assignment.
 
+Owner's token rules (2026-11-24): Opus only for design and milestone final reviews, at high reasoning.
+
 | Work | Model / level |
 |---|---|
-| Requirements, architecture, design, planning; design-changing analysis of device results; milestone final review | Opus 5.5 / max |
-| Change review (PR diff + callers) and re-reviews of fixes | Opus 5.5 / high |
-| Measurement code (`Analysis/`, `Motion/`, `Statistics/`, pure `Capture/` files), lab experiments, fixtures and reference results | Opus 5.5 / high |
-| Capture pipeline, concurrency, file formats and recovery; remote networking, crypto, protocol | Opus 5.5 / high |
-| SwiftUI views, settings, charts, sharing, wiring | Sonnet 5.5 / high |
-| Unit tests (test cases designed by the measurement-code agent) | Sonnet 5.5 / high |
-| CI log triage, compile-error fixes | Sonnet 5.5 / medium |
-| Docs upkeep (guide, change log, checklists, this file) | Sonnet 5.5 / medium |
+| Requirements, architecture, design, planning; design-changing analysis of device results; milestone final review | Opus 5.5 / high |
+| Change review (PR diff + callers) and re-reviews of fixes | Sonnet 5.5 / high |
+| Measurement code, lab experiments, fixtures and reference results; capture pipeline, concurrency, file formats, recovery; remote networking, crypto, protocol; SwiftUI; unit tests; fixing review findings in code | Sonnet 5.5 / high |
+| Compile-error fixes; docs upkeep and docs wording fixes (guide, change log, checklists, this file) | Sonnet 5.5 / medium |
+| CI log checks, file searches, mechanical work (port renames, formatting, inventories) | Haiku 5.5 / low |
 | Bookkeeping checks and few-line edits | Orchestrator, no agent |
-| Mechanical work (port renames, formatting, inventories, searches) | Haiku 5.5 / low |
 
 ## Review protocol
 - Severity: Critical (crash, data loss, privacy exposure, wrong measurement in output files or shown as valid) › High
   (wrong results in common use, thread-safety bug, leak during capture, CI break) › Medium (edge cases, missing error
   handling, performance that affects use) › Low (maintainability, polish).
-- Cycle: review → triage → fix → CI green → re-review the fix diff; repeat until a review yields no new findings of any
-  severity (owner's rule). Critical/High/Medium always fixed; a Low fixed or logged in P11 with a reason.
-- Change review: one fresh Opus 5.5 / high reviewer per PR (diff plus callers/callees). Area-split first review for
-  the measurement core (P1–P2) and the ported remote link (P6). Milestone final review: one fresh Opus 5.5 / max pass
-  over code, tests and guide; its code findings re-reviewed at Opus 5.5 / high.
+- Cycle for code: review → triage → fix → CI green → re-review the fix diff; repeat until a review yields no new findings of
+  any severity (owner's rule). Docs: at most 2 review cycles per milestone, re-reviewing only the sections that changed
+  (owner, 2026-11-24). Critical/High/Medium always fixed; a Low fixed or logged in P11 with a reason.
+- Change review: one fresh Sonnet 5.5 / high reviewer per PR (diff plus callers/callees). Area-split first review for
+  the measurement core (P1–P2) and the ported remote link (P6). Milestone final review: one fresh Opus 5.5 / high pass
+  over what changed in the milestone (code, tests, guide, docs); its code findings re-reviewed at Sonnet 5.5 / high.
 - Record each review in `docs/reviews/<YYYY-MM-DD>-<milestone or phase>.md` (ID, severity, file:line, summary, status).
 
-## Token budget (the owner's Phone LiDAR rules, adopted)
+## Token budget (the owner's Phone LiDAR rules, adopted, and the owner's token rules of 2026-11-24)
 - One session per task or phase, starting from this file and docs/implementation-plan.md.
 - At most two agents at a time; one agent does an area's fix and its tests together.
 - Read the diff, the touched files and their direct callers; grep before opening large files; read them in parts.
 - CI: dispatch once, then one `gh run watch <id> --exit-status`; on failure read only `--log-failed`.
+- Real data before more simulation: no new speculative lab experiments before the probe's frames (P0.8).
+- Lab runs and CI report summaries (pass counts, worst cases, failing tests), not logs; read results files by grep.
+- Group small fixes into one commit and one CI build. Docs split into per-topic files and this file trimmed in P0.9.
 
 ## Coding conventions
 - Units in names: `_deg`, `_px`, `_mm`, `_s`, `_pxPerS`, `_mmPerS` (or a doc comment). Degrees at API boundaries and in
