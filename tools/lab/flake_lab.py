@@ -127,7 +127,8 @@ def pwm_gain(size, period, duty, ramp, off=0.0, phase=None):
 def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0,
                grain=0.06, noise=0.012, psf=0.7, motion_blur=0.0, banding=0.0,
                band_period=40.0, band_axis="y", band_phase=None, shadow=None,
-               banding_shape="sine", band_duty=0.5, band_ramp=64.0, band_off=0.0, noise_blur=0.0, clean=None):
+               banding_shape="sine", band_duty=0.5, band_ramp=64.0, band_off=0.0, noise_blur=0.0, clean=None,
+               noise_field=None):
     """Render a mat of `n` strands; returns (8-bit image, truth dict).
 
     length/width are mean strand dimensions in output pixels (each strand +-30 %).
@@ -145,6 +146,9 @@ def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0
         the noise field with a Gaussian of that sigma (px) and rescales it to the same standard deviation, as an
         ISP's denoising leaves it; it draws the same random numbers, so the mats stay the same.
     clean: optional list; the noiseless float image (after optics, blur and banding) is appended to it.
+    noise_field: optional list; the standard normal field behind the noise is appended to it, so that the caller
+        can make the same mat at other noise levels with add_noise (bit-identical to rendering it again with that
+        noise; the generator draws the same numbers either way).
     """
     ss = SUPERSAMPLE
     big = size * ss
@@ -221,12 +225,17 @@ def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0
         img = img * (gain[:, None] if band_axis == "y" else gain[None, :])
     if clean is not None:
         clean.append(img.copy())
-    if noise_blur > 0:
-        field = cv2.GaussianBlur(rng.normal(0.0, 1.0, img.shape).astype(np.float32), (0, 0), noise_blur)
-        img = img + field * np.float32(noise / max(float(field.std()), 1e-12))
+    if noise_field is not None:
+        z = rng.normal(0.0, 1.0, img.shape)
+        noise_field.append(z)
+        img8 = add_noise(img, z, noise, noise_blur)
     else:
-        img = img + rng.normal(0.0, noise, img.shape).astype(np.float32)
-    img8 = np.clip(np.round(img * 255.0), 0, 255).astype(np.uint8)
+        if noise_blur > 0:
+            field = cv2.GaussianBlur(rng.normal(0.0, 1.0, img.shape).astype(np.float32), (0, 0), noise_blur)
+            img = img + field * np.float32(noise / max(float(field.std()), 1e-12))
+        else:
+            img = img + rng.normal(0.0, noise, img.shape).astype(np.float32)
+        img8 = np.clip(np.round(img * 255.0), 0, 255).astype(np.uint8)
 
     ids, counts = np.unique(label[label >= 0], return_counts=True)
     vis = np.zeros(n)
@@ -234,6 +243,18 @@ def render_mat(rng, size=768, n=650, mu=0.0, kappa=4.0, length=120.0, width=24.0
     frac = vis / (lengths * widths)
     truth = {"theta": thetas, "visible_frac": frac, "length": lengths, "width": widths}
     return img8, truth
+
+
+def add_noise(img, z, noise, noise_blur=0.0):
+    """8-bit image of the noiseless float image img plus Gaussian noise of standard deviation `noise` made from the
+    standard normal field z (render_mat's noise_field), exactly as render_mat adds it: white, or with noise_blur > 0
+    filtered with a Gaussian of that sigma (px) and rescaled to the same standard deviation."""
+    if noise_blur > 0:
+        field = cv2.GaussianBlur(z.astype(np.float32), (0, 0), noise_blur)
+        out = img + field * np.float32(noise / max(float(field.std()), 1e-12))
+    else:
+        out = img + (noise * z).astype(np.float32)
+    return np.clip(np.round(out * 255.0), 0, 255).astype(np.uint8)
 
 
 # ----------------------------------------------------------------------------------------------
@@ -607,9 +628,12 @@ BANDING_METHODS = ("A_tensor", "B_merged")
 BAND_DARK_MIN = 0.15     # exclude a shot (both methods) whose row_min is below this (near-dark rows)
 BAND_GRAD_MIN = 0.03     # cycle-3 flag on grad_frac; printed for comparison only (it grows as the ROI narrows)
 BAND_COMMON_MIN = 0.01   # banding that matters when band_common >= this
-BAND_R_MIN = 0.75        # A_tensor is corrected row by row only when the median R of A_tensor on the row-corrected
-                         # copy is >= this (kappa 4 layers read 0.77-0.88, kappa <= 2.5 at most 0.77) ...
-BAND_PSI_ROWS = 35.0     # ... and the median angle (deg) between the strands and the sensor rows is >= this
+BAND_R_MIN = 0.76        # A_tensor is corrected row by row only when the median R of A_tensor on the row-corrected
+                         # copy is >= this (kappa 4 layers read 0.79-0.85, kappa 3 0.76-0.78, kappa 2.5 0.73-0.75) ...
+BAND_PSI_ROWS = 45.0     # ... and the median angle (deg) between the strands and the sensor rows is >= this (review
+                         # cycle 5, E4 regime boundary: dividing row by row costs up to -0.46 deg on the mean at psi
+                         # 30-40 and -0.34 at psi 45 with kappa 2.5; 0.76 keeps that layer out of rows on a median
+                         # of 5 shots)
 BAND_SMOOTH_FLAKE = 0.7  # otherwise A_tensor's row means are smoothed over this many flake widths ...
 BAND_SMOOTH_MAX = 25     # ... but over at most this many rows (band periods do not scale with the strands) ...
 BAND_SMOOTH_ROW_MIN = 0.5  # ... and A_tensor is excluded when row_min is below this (smoothing cannot follow deep
@@ -636,6 +660,11 @@ def direction_regime(psi, r_dir):
     """A_tensor's correction regime from the strands' direction: "rows" (strands across or oblique to the rows:
     divide every row by its mean) or "along" (along the rows, or a weakly aligned or random layer: smooth)."""
     return "rows" if r_dir >= BAND_R_MIN and psi >= BAND_PSI_ROWS else "along"
+
+
+def _regime_rule_text():
+    """direction_regime in words, for the headers."""
+    return f"rows when median psi >= {BAND_PSI_ROWS:.0f} and median R >= {BAND_R_MIN}, otherwise along"
 
 
 def condition_regime(dirs, mets, dark_min=BAND_DARK_MIN):
@@ -665,8 +694,9 @@ def banding_rule(met, regime, wset, dark_min=BAND_DARK_MIN, common_min=BAND_COMM
     return (band_window(wset) if met["row_min"] >= BAND_SMOOTH_ROW_MIN else None), False, "flagged"
 
 
-def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN, **mat):
-    """E4-style condition evaluated three ways on the same images, A_tensor and B_merged only (estimator
+def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_COMMON_MIN, methods=BANDING_METHODS,
+                          forced=False, **mat):
+    """E4-style condition evaluated several ways on the same images, A_tensor and B_merged only (estimator
     settings of run_condition, so "raw" equals run_condition's result for the same seed and mat):
       raw   as rendered
       line  every sensor row divided by its mean (line_normalize8), on every image
@@ -675,6 +705,10 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_
             (condition_regime: median psi and R of A_tensor on the "line" copy): "rows" divides every row by its
             mean, "along" divides by the row means smoothed over band_window rows (A excluded when row_min <
             BAND_SMOOTH_ROW_MIN)
+    methods: the methods evaluated; ("A_tensor",) skips B_merged, whose rule result does not depend on the regime.
+    forced=True adds three variants: "smooth" (every image divided by its row means smoothed over band_window
+    rows) and "rule_rows" / "rule_along" (banding_rule with the regime forced to rows / along: the app decides the
+    regime once per run from its first flagged shots, so a layer near the boundary may get either).
     Returns {variant: {method: pooled stats with "se"}, "truth": ..., "_probe": [banding_metrics per image],
     "_dir": [(psi, R) per image], "_regime": {"regime", "psi", "R"} (the condition's), "_err": {variant: {method:
     [(mean err, sd err, in20 err) per image, None for an excluded shot]}}, "_rule": {"excluded": shots excluded
@@ -685,48 +719,61 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_
     rng = np.random.default_rng(seed)
     wset = float(mat.get("width", 24.0))
     axis = mat.get("band_axis", "y")
-    variants = ("raw", "line", "rule")
+    win = band_window(wset)
+    rules = (("rule", None),) + ((("rule_rows", "rows"), ("rule_along", "along")) if forced else ())
+    variants = ("raw", "line") + (("smooth",) if forced else ()) + tuple(v for v, _ in rules)
     shots = []
     for _ in range(images):
         img, truth = render_mat(rng, **mat)
         est = {}
-        for v, im in (("raw", img), ("line", line_normalize8(img, axis))):
-            est[v] = {"A_tensor": estimate_tensor(im, sigma_i=0.25 * wset),
-                      "B_merged": (estimate_segments_merged(im, min_len=1.5 * wset, max_gap=2.0 * wset)[0], None)}
+        copies = [("raw", img), ("line", line_normalize8(img, axis))]
+        if forced:
+            copies.append(("smooth", line_normalize8(img, axis, window=win)))
+        for v, im in copies:
+            est[v] = {"A_tensor": estimate_tensor(im, sigma_i=0.25 * wset)}
+            if "B_merged" in methods:
+                est[v]["B_merged"] = (estimate_segments_merged(im, min_len=1.5 * wset, max_gap=2.0 * wset)[0], None)
         shots.append({"img": img, "met": banding_metrics(img, axis), "est": est,
                       "tth": truth["theta"][truth["visible_frac"] >= 0.25],
                       "dir": strand_direction(axial_stats(*est["line"]["A_tensor"]), axis)})
     probes = [s["met"] for s in shots]
     dirs = [s["dir"] for s in shots]
     regime, med_psi, med_r = condition_regime(dirs, probes, dark_min)
-    pools = {v: {m: [] for m in BANDING_METHODS} for v in variants}
-    errs = {v: {m: [] for m in BANDING_METHODS} for v in variants}
-    rule_truth = {m: [] for m in BANDING_METHODS}
+    pools = {v: {m: [] for m in methods} for v in variants}
+    errs = {v: {m: [] for m in methods} for v in variants}
+    rule_truth = {v: {m: [] for m in methods} for v, _ in rules}
     counts = {"excluded": 0, "flagged": 0, "flagged_grad": 0, "shot_rows": 0, "shot_along": 0}
     for s in shots:
         met, est, tth = s["met"], s["est"], s["tth"]
         ts = axial_stats(tth)
-        corr, keep_b, state = banding_rule(met, regime, wset, dark_min, common_min)
-        counts["flagged_grad"] += int(met["grad_frac"] >= BAND_GRAD_MIN)
-        if state == "dark":
-            counts["excluded"] += 1
-        elif state == "flagged":
-            counts["flagged"] += 1
-            counts["shot_" + direction_regime(*s["dir"])] += 1
-        if corr is None:
-            a_est = None
-        elif corr == "none":
-            a_est = est["raw"]["A_tensor"]
-        elif corr == "rows":
-            a_est = est["line"]["A_tensor"]
-        else:
-            a_est = estimate_tensor(line_normalize8(s["img"], axis, window=corr), sigma_i=0.25 * wset)
-        est["rule"] = {"A_tensor": a_est, "B_merged": est["raw"]["B_merged"] if keep_b else None}
-        for m in BANDING_METHODS:
-            if est["rule"][m] is not None:
-                rule_truth[m].append(tth)
+        for v, forced_regime in rules:
+            corr, keep_b, state = banding_rule(met, forced_regime or regime, wset, dark_min, common_min)
+            if v == "rule":
+                counts["flagged_grad"] += int(met["grad_frac"] >= BAND_GRAD_MIN)
+                if state == "dark":
+                    counts["excluded"] += 1
+                elif state == "flagged":
+                    counts["flagged"] += 1
+                    counts["shot_" + direction_regime(*s["dir"])] += 1
+            if corr is None:
+                a_est = None
+            elif corr == "none":
+                a_est = est["raw"]["A_tensor"]
+            elif corr == "rows":
+                a_est = est["line"]["A_tensor"]
+            else:
+                if "smooth" not in est:
+                    est["smooth"] = {"A_tensor": estimate_tensor(line_normalize8(s["img"], axis, window=corr),
+                                                                 sigma_i=0.25 * wset)}
+                a_est = est["smooth"]["A_tensor"]
+            est[v] = {"A_tensor": a_est}
+            if "B_merged" in methods:
+                est[v]["B_merged"] = est["raw"]["B_merged"] if keep_b else None
+            for m in methods:
+                if est[v][m] is not None:
+                    rule_truth[v][m].append(tth)
         for v in variants:
-            for m in BANDING_METHODS:
+            for m in methods:
                 if est[v][m] is None:
                     errs[v][m].append(None)
                     continue
@@ -737,13 +784,15 @@ def run_banding_condition(seed, images, dark_min=BAND_DARK_MIN, common_min=BAND_
                                   if ms.get("n", 0) and ts.get("n", 0) else None)
     out = {"truth": axial_stats(np.concatenate([s["tth"] for s in shots])), "_probe": probes, "_dir": dirs,
            "_regime": {"regime": regime, "psi": med_psi, "R": med_r}, "_rule": counts,
-           "_err": {v: {m: [None if e is None else list(e) for e in errs[v][m]] for m in BANDING_METHODS}
+           "_err": {v: {m: [None if e is None else list(e) for e in errs[v][m]] for m in methods}
                     for v in variants}}
     for v in variants:
         out[v] = {}
-        for m in BANDING_METHODS:
-            tr = out["truth"] if v != "rule" else (axial_stats(np.concatenate(rule_truth[m])) if rule_truth[m]
-                                                   else {"n": 0})
+        for m in methods:
+            if v in rule_truth:
+                tr = axial_stats(np.concatenate(rule_truth[v][m])) if rule_truth[v][m] else {"n": 0}
+            else:
+                tr = out["truth"]
             if not pools[v][m]:
                 out[v][m] = {"n": 0}
                 continue
@@ -974,11 +1023,12 @@ def _paired_means(errs, ctrl):
     return None if d.size == 0 else d.mean(axis=0)
 
 
-def _rule_ok(r, ctrl_raw_err, random_layer=False, lim=(0.25, 0.5, 2.0)):
+def _rule_ok(r, ctrl_raw_err, random_layer=False, lim=(0.25, 0.5, 2.0), variant="rule"):
     """Criterion of review cycle 4 for the rule: every method within lim (mean deg, spread deg, in20 points) of
-    the control, or excluded. A random layer has no mean direction, so only its spread and in20 count."""
-    for m in BANDING_METHODS:
-        p = _paired_means(r["_err"]["rule"][m], ctrl_raw_err[m])
+    the control, or excluded. A random layer has no mean direction, so only its spread and in20 count. variant:
+    "rule", or with forced=True "rule_rows" / "rule_along"; the methods are those the condition evaluated."""
+    for m in r["_err"][variant]:
+        p = _paired_means(r["_err"][variant][m], ctrl_raw_err[m])
         if p is None:
             continue
         if (not random_layer and abs(p[0]) > lim[0]) or abs(p[1]) > lim[1] or abs(p[2]) > lim[2]:
@@ -1133,6 +1183,9 @@ def experiment_e4_dir(images, results, ctrl):
     print(" R of A_tensor on the row-corrected copy per shot (no bands, mu 10; kappa 0: mu 0): " + "  ".join(
         f"kappa {k:g}: {np.median(v):.3f} [{min(v):.3f}, {max(v):.3f}]" for k, v in sorted(r_dist.items())))
     results["E4_dir_R"] = {f"{k:g}": v for k, v in r_dist.items()}
+    dir_cost = [(f"mu 10 k 4 {ax}", ctrl[ax]) for ax in ("x", "y")] + [
+        (f"mu {mu:.0f} k {kappa:g} {ax}", layer_ctrl[(mu, kappa, ax)]) for mu, kappa, ax in E4_DIR_LAYERS]
+    _print_line_costs("strand-direction grid", dir_cost, results, "E4_line_cost_dir")
 
     print("\nE4  (cont.) Wide strands: length 5 x width, count scaled to the 24 px mats' coverage; the along regime's"
           f" window is {BAND_SMOOTH_FLAKE} flake widths\n    capped at {BAND_SMOOTH_MAX} rows. Same layout as above;"
@@ -1157,6 +1210,115 @@ def experiment_e4_dir(images, results, ctrl):
                   f" {_dir_text(r['_dir'])} | flagged {r['_rule']['flagged']}")
             continue
         print(_compact_rule_line(label, r, layer_ctrl[(width, mu, ax)]["_err"]["raw"], images))
+    wide_cost = [(f"{width:.0f} px mu {mu:.0f} {ax}", layer_ctrl[(width, mu, ax)])
+                 for width, _n in E4_WIDE for mu, _k, ax in E4_WIDE_LAYERS]
+    _print_line_costs("wide strands", wide_cost, results, "E4_line_cost_wide")
+    experiment_e4_boundary(images, results)
+
+
+def _line_cost(r, variant="line"):
+    """Change of A_tensor's mean (deg) when every image of a condition is corrected (variant "line": every row
+    divided by its mean; "smooth": by the smoothed row means) instead of raw: (mean, SE) over the images."""
+    ps = _paired_stats(r["_err"][variant]["A_tensor"], r["_err"]["raw"]["A_tensor"])
+    return (float("nan"), float("nan")) if ps is None else (float(ps[0][0]), float(ps[1][0]))
+
+
+def _print_line_costs(title, items, results, key):
+    """Compact list of _line_cost on the controls (mats without bands): what dividing row by row costs A_tensor's
+    mean on a clean mat, the error the rows regime adds on a flagged shot."""
+    rows = {}
+    for name, r in items:
+        c, se = _line_cost(r)
+        g = r["_regime"]
+        rows[name] = {"mean": c, "se": se, "psi": g["psi"], "R": g["R"]}
+    results[key] = rows
+    print(f" Clean-mat cost of the row division on A_tensor's mean, {title} (control, line vs raw, mean ± SE; median"
+          " psi, R): " + "; ".join(
+        f"{name} {v['mean']:+.2f}±{v['se']:.2f} ({v['psi']:.0f}, {v['R']:.3f})" for name, v in rows.items()))
+
+
+# Regime boundary (review cycle 5): layers in mount x at mu (deg from MD) x kappa, under three of E4_DIR_BANDS, and
+# the wide strands of E4_WIDE (kappa 4) at the mid angles the wide-strand grid lacks
+E4_BOUND_MUS = (40.0, 45.0, 50.0, 55.0, 60.0)
+E4_BOUND_KAPPAS = (2.5, 3.0, 4.0)
+E4_BOUND_WIDE_MUS = (30.0, 40.0, 45.0, 50.0)
+E4_BOUND_BANDS = tuple(b for b in E4_DIR_BANDS if b[0] in ("sine 40 rows 10 %", "PWM 135/0.8/64", "PWM 270/0.9/64"))
+
+
+def experiment_e4_boundary(images, results):
+    print(f"\nE4  (cont.) Regime boundary: layers in mount x at mu {', '.join(f'{m:.0f}' for m in E4_BOUND_MUS)}"
+          f" (psi about {', '.join(f'{90 - m:.0f}' for m in E4_BOUND_MUS)}) and kappa"
+          f" {', '.join(f'{k:g}' for k in E4_BOUND_KAPPAS)}, then\n    strands of"
+          f" {' and '.join(f'{w:.0f}' for w, _n in E4_WIDE)} px (as in the wide-strand part, kappa 4) at mu"
+          f" {', '.join(f'{m:.0f}' for m in E4_BOUND_WIDE_MUS)}; {images} images each, paired against the same mats"
+          " without bands;\n    A_tensor only (B_merged is excluded on every flagged shot whatever the regime). The app"
+          " decides the regime once per run from its\n    first flagged shots, so a layer near the boundary may get"
+          " either: A is evaluated raw and with the regime forced, rows (every row\n    divided by its mean) and along"
+          f" (row means smoothed over {BAND_SMOOTH_FLAKE} flake widths, at most {BAND_SMOOTH_MAX} rows; A excluded"
+          f" when row_min < {BAND_SMOOTH_ROW_MIN}), each as\n    changes mean, sd, in20 (images used) with its verdict,"
+          f" then the regime the rule picks ({_regime_rule_text()}) and\n    its verdict. Control line: median psi"
+          " and R, and the clean-mat cost of each correction on A's mean (rows = line vs raw, along =\n    smoothed vs"
+          " raw; mean ± SE).")
+    layers = [(24.0, None, mu, kappa) for mu in E4_BOUND_MUS for kappa in E4_BOUND_KAPPAS] + [
+        (width, n, mu, 4.0) for width, n in E4_WIDE for mu in E4_BOUND_WIDE_MUS]
+    jobs, names = [], []
+    for width, n, mu, kappa in layers:
+        base = dict(mu=mu, kappa=kappa, band_axis="x", methods=("A_tensor",), forced=True)
+        if n is not None:
+            base.update(width=width, length=5.0 * width, n=n)
+        jobs.append((400, images, base))
+        names.append((width, mu, kappa, "control"))
+        for label, kw in E4_BOUND_BANDS:
+            jobs.append((400, images, dict(base, **kw)))
+            names.append((width, mu, kappa, label))
+    out = _map_banding(jobs)
+    ctrl, costs = {}, []
+    tally = {w: {"rule": 0, "rule_rows": 0, "rule_along": 0, "n": 0} for w in ("24", "wide")}
+    worst = {}
+
+    def txt(r, v, c):
+        p = _paired_means(r["_err"][v]["A_tensor"], c["_err"]["raw"]["A_tensor"])
+        n_used = sum(e is not None for e in r["_err"][v]["A_tensor"])
+        return "      excluded      " if p is None else f"{p[0]:+5.2f} {p[1]:+5.2f} {p[2]:+5.1f} ({n_used})"
+
+    for (width, mu, kappa, label), r in zip(names, out):
+        tag = f"{width:.0f}px_{mu:.0f}_{kappa:g}"
+        results[f"E4_bound_{tag}_{label}"] = dict(r, _label=f"strands {width:.0f} px, mu {mu:.0f}, kappa {kappa:g},"
+                                                            f" mount x, {label}")
+        if label == "control":
+            ctrl[(width, mu, kappa)] = r
+            costs.append((f"{width:.0f} px mu {mu:.0f} k {kappa:g}", r))
+            cr, cs = _line_cost(r), _line_cost(r, "smooth")
+            print(f" strands {width:.0f} px, mu {mu:.0f}, kappa {kappa:g}: control {_dir_text(r['_dir'])}; clean-mat"
+                  f" cost of A on the mean: rows {cr[0]:+.2f}±{cr[1]:.2f}, along {cs[0]:+.2f}±{cs[1]:.2f}")
+            continue
+        c = ctrl[(width, mu, kappa)]
+        group = "24" if width == 24.0 else "wide"
+        oks = {v: _rule_ok(r, c["_err"]["raw"], variant=v) for v in ("rule", "rule_rows", "rule_along")}
+        tally[group]["n"] += 1
+        for v, ok in oks.items():
+            tally[group][v] += int(ok)
+            p = _paired_means(r["_err"][v]["A_tensor"], c["_err"]["raw"]["A_tensor"])
+            if p is not None and ((group, v) not in worst or abs(p[0]) > abs(worst[(group, v)][0])):
+                worst[(group, v)] = (float(p[0]), f"{width:.0f} px mu {mu:.0f} k {kappa:g} {label}")
+        g = r["_regime"]
+        bc = [p["band_common"] for p in r["_probe"]]
+        print(f"  {label:<18} raw A {txt(r, 'raw', c)} | rows A {txt(r, 'rule_rows', c)}"
+              f" {'ok  ' if oks['rule_rows'] else 'FAIL'} | along A {txt(r, 'rule_along', c)}"
+              f" {'ok  ' if oks['rule_along'] else 'FAIL'} | rule {g['regime']:<5} {'ok  ' if oks['rule'] else 'FAIL'}"
+              f" (psi {g['psi']:4.1f} R {g['R']:.3f}) | flag {r['_rule']['flagged']} bc {np.median(bc):.3f}"
+              f" row_min {min(p['row_min'] for p in r['_probe']):.2f}")
+    results["E4_bound_summary"] = {grp: dict(t, worst_mean={v: list(worst[(grp, v)]) for v in
+                                                            ("rule", "rule_rows", "rule_along") if (grp, v) in worst})
+                                   for grp, t in tally.items()}
+    for grp, label in (("24", "24 px layers"), ("wide", "wide strands")):
+        t = tally[grp]
+        print(f" Regime boundary summary, {label}: within tolerance (or excluded) under the regime the rule picks"
+              f" {t['rule']}/{t['n']}, forced rows {t['rule_rows']}/{t['n']}, forced along {t['rule_along']}/{t['n']};"
+              " largest change of the mean: " + ", ".join(
+                  f"{v} {worst[(grp, v)][0]:+.2f} ({worst[(grp, v)][1]})" for v in ("rule", "rule_rows", "rule_along")
+                  if (grp, v) in worst))
+    _print_line_costs("boundary layers", costs, results, "E4_line_cost_bound")
 
 
 def experiment_e5(images, results):
@@ -1902,36 +2064,53 @@ def experiment_e13(images, results):
 
 E14_SEED = 1400
 E14_BASE = 0.012                                 # the lab's baseline noise (every other experiment)
-E14_WHITE = (0.006, 0.012, 0.025, 0.05, 0.10)    # white Gaussian noise sigma, lab units
-E14_CORR = (0.05, 0.10)                          # correlated variant (as left by ISP denoising)
+E14_WHITE = (0.006, 0.0085, 0.012, 0.017, 0.025, 0.035, 0.05, 0.071, 0.10)   # white noise sigma (steps of ~sqrt 2)
+E14_CORR = (0.017, 0.025, 0.035, 0.05, 0.071, 0.10)   # correlated variant (as left by ISP denoising)
 E14_CORR_BLUR = 0.7                              # its Gaussian filter sigma (px)
+E14_HP_FLAKES = 2.0                              # high-pass contrast: Gaussian low-pass of this many flake widths
 E14_LAYERS = (("face mu 10 kappa 4", 10.0, 4.0), ("face mu 10 kappa 2", 10.0, 2.0),
               ("core mu 90 kappa 4", 90.0, 4.0), ("random kappa 0", 0.0, 0.0))
 E14_LIM = (0.25, 0.5, 2.0)                       # tolerances: mean deg, spread deg, in20 points
+E14_CASES = tuple(("white", s) for s in E14_WHITE) + tuple(("corr", s) for s in E14_CORR)
 
 
-def run_noise_condition(seed, images, **mat):
-    """A_tensor and B_merged (estimator settings of run_condition) on `images` mats from one seeded generator.
-    Mats with the same seed and layer are the same strands for every noise level, so conditions pair per image.
-    Returns {"_err": {method: [(mean err, sd err, in20 err) per image, None when empty]}, "contrast": [standard
-    deviation of the noiseless image per image], "b_count": [B_merged samples per image], "_probe":
-    [banding_metrics per image]}."""
+def highpass_contrast(img, wset):
+    """The contrast the conditions forecast measures: standard deviation of img minus its Gaussian low-pass of
+    sigma E14_HP_FLAKES flake widths (px), so that slow shading and the mat's coarse layout do not count."""
+    f = img.astype(np.float32)
+    return float((f - cv2.GaussianBlur(f, (0, 0), E14_HP_FLAKES * wset)).std())
+
+
+def run_noise_condition(seed, images, cases=E14_CASES, **mat):
+    """A_tensor and B_merged (estimator settings of run_condition) on `images` mats from one seeded generator, each
+    mat at every noise case (kind "white" or "corr", sigma): the mat is rendered once and the cases are made from
+    the same standard normal field (render_mat's noise_field and add_noise; the same images as rendering each case
+    with its own noise), so the cases pair per image. Returns {"contrast": [standard deviation of the noiseless
+    image per image], "contrast_hp": [highpass_contrast of the noiseless image per image], "cases": {(kind,
+    sigma): {"_err": {method: [(mean err, sd err, in20 err) per image, None when empty]}, "b_count": [B_merged
+    samples per image], "_probe": [banding_metrics per image]}}}."""
     rng = np.random.default_rng(seed)
     wset = float(mat.get("width", 24.0))
     axis = mat.get("band_axis", "x")
-    out = {"_err": {m: [] for m in BANDING_METHODS}, "contrast": [], "b_count": [], "_probe": []}
+    mat = {k: v for k, v in mat.items() if k not in ("noise", "noise_blur")}
+    out = {"contrast": [], "contrast_hp": [],
+           "cases": {c: {"_err": {m: [] for m in BANDING_METHODS}, "b_count": [], "_probe": []} for c in cases}}
     for _ in range(images):
-        clean = []
-        img, truth = render_mat(rng, clean=clean, **mat)
+        clean, field = [], []
+        _img, truth = render_mat(rng, clean=clean, noise_field=field, **mat)
         out["contrast"].append(float(clean[0].std()))
-        out["_probe"].append(banding_metrics(img, axis))
+        out["contrast_hp"].append(highpass_contrast(clean[0], wset))
         ts = axial_stats(truth["theta"][truth["visible_frac"] >= 0.25])
-        thb = estimate_segments_merged(img, min_len=1.5 * wset, max_gap=2.0 * wset)[0]
-        out["b_count"].append(int(len(thb)))
-        for m, (th, w) in (("A_tensor", estimate_tensor(img, sigma_i=0.25 * wset)), ("B_merged", (thb, None))):
-            ms = axial_stats(th, w)
-            out["_err"][m].append([axial_diff(ms["mean"], ts["mean"]), ms["sd"] - ts["sd"], ms["in20"] - ts["in20"]]
-                                  if ms.get("n", 0) and ts.get("n", 0) else None)
+        for kind, sig in cases:
+            img = add_noise(clean[0], field[0], sig, E14_CORR_BLUR if kind == "corr" else 0.0)
+            co = out["cases"][(kind, sig)]
+            co["_probe"].append(banding_metrics(img, axis))
+            thb = estimate_segments_merged(img, min_len=1.5 * wset, max_gap=2.0 * wset)[0]
+            co["b_count"].append(int(len(thb)))
+            for m, (th, w) in (("A_tensor", estimate_tensor(img, sigma_i=0.25 * wset)), ("B_merged", (thb, None))):
+                ms = axial_stats(th, w)
+                co["_err"][m].append([axial_diff(ms["mean"], ts["mean"]), ms["sd"] - ts["sd"],
+                                      ms["in20"] - ts["in20"]] if ms.get("n", 0) and ts.get("n", 0) else None)
     return out
 
 
@@ -1952,70 +2131,121 @@ def _map_noise(jobs):
         return pool.map(_noise_job, jobs, chunksize=1)
 
 
-def _e14_outside(p, frac, random_layer):
-    """True when the paired change p (mean, sd, in20) leaves frac x the tolerances (mean ignored on a random
-    layer, which has no mean direction)."""
-    return ((not random_layer and abs(p[0]) > frac * E14_LIM[0]) or abs(p[1]) > frac * E14_LIM[1]
-            or abs(p[2]) > frac * E14_LIM[2])
+def _paired_stats(errs, ctrl):
+    """Paired change from the control: (mean, SE) arrays over (mean, sd, in20), or None when all excluded (SE 0
+    with one image)."""
+    d = np.asarray([[a - b for a, b in zip(e, c)] for e, c in zip(errs, ctrl) if e is not None and c is not None])
+    if d.size == 0:
+        return None
+    se = d.std(axis=0, ddof=1) / math.sqrt(len(d)) if len(d) >= 2 else np.zeros(3)
+    return d.mean(axis=0), se
+
+
+E14_PARTS = ("mean", "sd", "in20")
+
+
+def _e14_limit(rs, base, m, kind, frac, random_layer):
+    """The noise limit of one method by the forecast's rule: scanning the sigmas of `kind` above the baseline
+    upwards, the largest sigma up to which every paired change (point estimate) stays within frac x the tolerances
+    (mean ignored on a random layer). Returns {"sigma": that sigma (the baseline when the first step leaves),
+    "exit": the first sigma that leaves (None = none within the grid), "part": the part that leaves, "fragile":
+    True when the decision rests on a change within one SE of its threshold (the last sigma inside could be
+    outside, or the exit could be inside)}."""
+    parts = range(1, 3) if random_layer else range(3)
+    thr = [frac * x for x in E14_LIM]
+    last, fragile = E14_BASE, False
+    for sig in sorted(s for k, s in E14_CASES if k == kind and s > E14_BASE):
+        ps = _paired_stats(rs[(kind, sig)]["_err"][m], base["_err"][m])
+        if ps is None:
+            return {"sigma": last, "exit": sig, "part": "excluded", "fragile": fragile}
+        p, se = ps
+        out = [j for j in parts if abs(p[j]) > thr[j]]
+        if out:
+            fragile = fragile or all(abs(p[j]) - se[j] <= thr[j] for j in out)
+            return {"sigma": last, "exit": sig, "part": "+".join(E14_PARTS[j] for j in out), "fragile": fragile}
+        last = sig
+        fragile = any(abs(p[j]) + se[j] > thr[j] for j in parts)
+    return {"sigma": last, "exit": None, "part": None, "fragile": fragile}
+
+
+def _e14_limit_text(lim, contrast):
+    """CNR (sigma) of a limit; "<=" when no tested sigma left the band (the limit lies at or below that CNR), "*"
+    when fragile, then where and on which part it leaves."""
+    cnr = contrast / lim["sigma"]
+    t = f"{'<=' if lim['exit'] is None else ''}{cnr:.1f}{'*' if lim['fragile'] else ''} ({lim['sigma']:.3f})"
+    return t + ("" if lim["exit"] is None else f" out at {lim['exit']:.3f} {lim['part']}")
 
 
 def experiment_e14(images, results):
+    n_img = 2 * images
     print(f"\nE14 Image noise (conditions forecast): Gaussian noise sigma in lab units (1 = full scale), mount x,"
-          f" seed {E14_SEED},\n    {images} images per condition, the same strands at every sigma. Changes from"
-          f" sigma {E14_BASE} (the lab's baseline), mean ± SE over the images of the\n    paired difference (deg;"
-          " in20 in points). contrast = standard deviation of the noiseless image (median over images); CNR ="
-          " contrast /\n    sigma. B n = B_merged samples per image (mean). bc = share of shots flagged by"
-          f" band_common (>= {BAND_COMMON_MIN}) on these unbanded mats;\n    row_min = darkest row (minimum)."
+          f" seed {E14_SEED},\n    {n_img} images per condition (twice the run's count, for smaller standard errors),"
+          " each mat rendered once and seen at every sigma\n    (the same strands and the same normal field)."
+          f" Changes from sigma {E14_BASE} (the lab's baseline), mean ± SE over the images of the paired\n    "
+          "difference (deg; in20 in points). contrast = standard deviation of the noiseless image; high-pass ="
+          " the same after subtracting\n    a Gaussian low-pass of sigma"
+          f" {E14_HP_FLAKES:g} flake widths (48 px), as the app measures it (medians over images); CNR = high-pass"
+          " contrast / sigma.\n    B n = B_merged samples per image (mean). bc = share of shots flagged by"
+          f" band_common (>= {BAND_COMMON_MIN}) on these unbanded mats; row_min =\n    darkest row (minimum)."
           f" corr = the noise field filtered with a Gaussian of sigma {E14_CORR_BLUR} px and rescaled to the same"
-          " sigma (ISP\n    denoising). Tolerances: 0.25 deg mean, 0.5 deg spread, 2 points in20 (random layer:"
-          " spread and in20 only).")
-    cases = [("white", s) for s in E14_WHITE] + [("corr", s) for s in E14_CORR]
-    jobs = []
-    for _name, mu, kappa in E14_LAYERS:
-        for kind, sig in cases:
-            kw = dict(mu=mu, kappa=kappa, band_axis="x", noise=sig)
-            if kind == "corr":
-                kw["noise_blur"] = E14_CORR_BLUR
-            jobs.append((E14_SEED, images, kw))
-    out = iter(_map_noise(jobs))
-    summary = {}
-    for name, mu, kappa in E14_LAYERS:
-        rs = {c: next(out) for c in cases}
+          " sigma (ISP denoising),\n    paired against the same white baseline. Tolerances: 0.25 deg mean, 0.5 deg"
+          " spread, 2 points in20 (random layer: spread and in20 only).\n    Limits (one rule): Good = the"
+          " smallest CNR (largest sigma) up to which every change stays within half of the tolerances, Poor = within"
+          "\n    the tolerances, scanning sigma upwards from the baseline on the point estimates; <= = no tested sigma"
+          " left the band; * = fragile\n    (the deciding change is within one SE of its threshold); out at = the"
+          " first sigma that leaves, and on which part.")
+    jobs = [(E14_SEED, n_img, dict(mu=mu, kappa=kappa, band_axis="x")) for _name, mu, kappa in E14_LAYERS]
+    summary, worst = {}, {}
+    for (name, mu, kappa), lr in zip(E14_LAYERS, _map_noise(jobs)):
+        rs = lr["cases"]
         base = rs[("white", E14_BASE)]
         random_layer = kappa == 0.0
-        contrast = float(np.median(base["contrast"]))
-        print(f" {name}: contrast {contrast:.4f}; at sigma {E14_BASE}: B n {np.mean(base['b_count']):.0f}")
-        for kind, sig in cases:
+        contrast = float(np.median(lr["contrast"]))
+        chp = float(np.median(lr["contrast_hp"]))
+        results[f"E14_{mu:.0f}_{kappa:g}_contrast"] = {"contrast": lr["contrast"], "contrast_hp": lr["contrast_hp"]}
+        print(f" {name}: contrast {contrast:.4f}, high-pass {chp:.4f} [{min(lr['contrast_hp']):.4f},"
+              f" {max(lr['contrast_hp']):.4f}]; at sigma {E14_BASE}: B n {np.mean(base['b_count']):.0f}")
+        for kind, sig in E14_CASES:
             r = rs[(kind, sig)]
             results[f"E14_{mu:.0f}_{kappa:g}_{kind}_{sig}"] = dict(r, _label=f"{name}, {kind} noise sigma {sig}")
             bc = np.asarray([p["band_common"] for p in r["_probe"]])
             ch = ("  ".join(f"{m} {_paired_text(r['_err'][m], base['_err'][m], in20=True)}"
                             for m in BANDING_METHODS) if (kind, sig) != ("white", E14_BASE) else
-                  "(baseline)".ljust(60))
-            print(f"  {kind:<5} sigma {sig:5.3f} CNR {contrast / sig:5.1f} | {ch} | B n"
+                  "(baseline)".ljust(110))
+            print(f"  {kind:<5} sigma {sig:6.4f} CNR {chp / sig:5.2f} | {ch} | B n"
                   f" {np.mean(r['b_count']):4.0f} | bc {100 * np.mean(bc >= BAND_COMMON_MIN):3.0f} %"
                   f" row_min {min(p['row_min'] for p in r['_probe']):.2f}")
-        lim = {}
+        lims = {}
         for m in BANDING_METHODS:
-            for kind, sigs in (("white", [s for s in E14_WHITE if s > E14_BASE]), ("corr", list(E14_CORR))):
-                for frac, lab in ((1.0, "leaves"), (0.5, "half")):
-                    first = None
-                    for sig in sigs:
-                        p = _paired_means(rs[(kind, sig)]["_err"][m], base["_err"][m])
-                        if p is None or _e14_outside(p, frac, random_layer):
-                            first = sig
-                            break
-                    lim[f"{m}_{kind}_{lab}"] = first
-        summary[name] = dict(lim, contrast=contrast)
-        print("  first sigma that uses half of the tolerances / leaves them (white; corr): " + "  ".join(
-            f"{m} {_e14_sig(lim[f'{m}_white_half'])} / {_e14_sig(lim[f'{m}_white_leaves'])};"
-            f" {_e14_sig(lim[f'{m}_corr_half'])} / {_e14_sig(lim[f'{m}_corr_leaves'])}" for m in BANDING_METHODS))
+            for kind in ("white", "corr"):
+                for frac, lab in ((0.5, "good"), (1.0, "poor")):
+                    lim = _e14_limit(rs, base, m, kind, frac, random_layer)
+                    lim["cnr"] = chp / lim["sigma"]
+                    lims[f"{m}_{kind}_{lab}"] = lim
+                    w = worst.get((m, kind, lab))
+                    if w is None or lim["cnr"] > w[0]:
+                        worst[(m, kind, lab)] = (lim["cnr"], name, lim)
+        summary[name] = dict(lims, contrast=contrast, contrast_hp=chp)
+        for m in BANDING_METHODS:
+            print(f"  limits {m:<8} " + " | ".join(
+                f"{kind}: Good {_e14_limit_text(lims[f'{m}_{kind}_good'], chp)}, Poor"
+                f" {_e14_limit_text(lims[f'{m}_{kind}_poor'], chp)}" for kind in ("white", "corr")))
     results["E14_summary"] = summary
+    results["E14_worst"] = {f"{m}_{kind}_{lab}": {"cnr": v[0], "layer": v[1], **v[2]}
+                            for (m, kind, lab), v in worst.items()}
+    print(" Most conservative limits across layers (largest CNR; the random layer counts for spread and in20 only): "
+          + "  ".join(f"{m} white Good {_e14_worst_text(worst[(m, 'white', 'good')])} Poor"
+                      f" {_e14_worst_text(worst[(m, 'white', 'poor')])}, corr Good"
+                      f" {_e14_worst_text(worst[(m, 'corr', 'good')])} Poor {_e14_worst_text(worst[(m, 'corr', 'poor')])}"
+                      for m in BANDING_METHODS))
+    print("  (deciding layer: " + "; ".join(
+        f"{m} {kind} {lab} {worst[(m, kind, lab)][1]}" for m in BANDING_METHODS for kind in ("white", "corr")
+        for lab in ("good", "poor")) + ")")
 
 
-def _e14_sig(sig):
-    """A first-sigma value for the E14 summary; None = not reached within the tested sigmas."""
-    return "-" if sig is None else f"{sig:.3f}"
+def _e14_worst_text(w):
+    """Most conservative CNR of a limit across layers: (cnr, layer, limit) -> text with the "<=" and "*" marks."""
+    return f"{'<=' if w[2]['exit'] is None else ''}{w[0]:.1f}{'*' if w[2]['fragile'] else ''}"
 
 
 if __name__ == "__main__":
