@@ -46,6 +46,11 @@ final class CameraScaleTests: XCTestCase {
         return DepthMap(width: 640, height: 480, values_m: values)
     }
 
+    /// A fixed pseudo-random number 0…99 for a pixel.
+    private func hashPercent(_ x: Int, _ y: Int) -> Int {
+        ((x * 73856093) ^ (y * 19349663)) % 100
+    }
+
     private func footprint(_ roi: NormalizedRect) -> DepthFootprint {
         CameraScale.footprint(roi: roi, video: video, videoSize_px: (4032, 3024), depth: depth, depthSize_px: (640, 480))!
     }
@@ -94,8 +99,8 @@ final class CameraScaleTests: XCTestCase {
     }
 
     func testHolesBelowHalfAreTolerated() {
-        // 30 % of the pixels have no depth (every pixel with x + 2y divisible by 10 in three of ten residues).
-        let holes = map { x, y in ((x + 2 * y) % 10) < 3 ? 0 : 1.2 }
+        // About 30 % of the pixels have no depth, scattered by a hash so that no sampling stride lines up with them.
+        let holes = map { x, y in hashPercent(x, y) < 30 ? 0 : 1.2 }
         let reading = CameraScale.reading(maps: [holes, holes, holes], footprint: footprint(.centered(width: 0.5, height: 0.5)))
         XCTAssertEqual(reading.distance_mm ?? 0, 1200, accuracy: 0.01)
         XCTAssertTrue(reading.isValid)
@@ -103,7 +108,7 @@ final class CameraScaleTests: XCTestCase {
     }
 
     func testMostlyInvalidDepthIsNotAReading() {
-        let mostlyHoles = map { x, y in ((x + 2 * y) % 10) < 7 ? .nan : 1.2 }
+        let mostlyHoles = map { x, y in hashPercent(x, y) < 70 ? .nan : 1.2 }
         let reading = CameraScale.reading(maps: [mostlyHoles, mostlyHoles], footprint: footprint(.centered(width: 0.5, height: 0.5)))
         XCTAssertFalse(reading.isValid)
         XCTAssertNotNil(reading.distance_mm)
