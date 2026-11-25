@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Home (FR-APP-01): Scan, Connect to the other phone, Runs and Settings / About. Only About works in this
-/// build; the other three are placeholders until their screens exist.
+/// Home (FR-APP-01): Scan, Connect to the other phone, Runs and Settings / About. Only Settings (Diagnostics and
+/// About) works in this build; the other three are placeholders until their screens exist.
 struct HomeView: View {
     var body: some View {
         NavigationStack {
@@ -13,11 +13,11 @@ struct HomeView: View {
                 }
                 Section {
                     NavigationLink {
-                        AboutView()
+                        SettingsView()
                     } label: {
                         HomeRowLabel(title: "Settings / About",
                                      systemImage: "gearshape",
-                                     caption: "Version and build number")
+                                     caption: "Diagnostics, version and build number")
                     }
                 }
             }
